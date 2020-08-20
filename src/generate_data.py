@@ -39,7 +39,7 @@ def get_data(reason):
 
     if reason == 0:
         X_train = np.load(paths.test_dest + '/' + str(num_frames) + '_small_X.npy')
-        Y_train = np.load(paths.test_dest + '/' + str(num_frames) + '_small_X.npy')
+        Y_train = np.load(paths.test_dest + '/' + str(num_frames) + '_small_Y.npy')
         X_test = np.load(paths.test_dest + '/' + str(num_frames) + '_small_X.npy')
         Y_test = np.load(paths.test_dest + '/' + str(num_frames) + '_small_Y.npy')
     elif reason == 1:

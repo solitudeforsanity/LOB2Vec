@@ -9,21 +9,24 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.utils import plot_model
 
+# Get Data and set classes 
+X_train, Y_train, X_test, Y_test = gd.get_data(0) 
+unique_Y_train_classes = list(set(Y_train))
+Y_train_dict = dict(zip(unique_Y_train_classes, list(range(1,len(unique_Y_train_classes)+1))))
+Y_train_numeric = [Y_train_dict[v] for v in Y_train]
+
 # Parameters - Mostly static
 num_frames = 500 # Number of LOB States our book contains
 h = 30 # Book Depth 
 w = 2 # Buy side and sell side
 d = 2 # Price and Volume
-nb_classes = 25
-
-X_train, Y_train, X_test, Y_test = gd.get_data(0) 
+nb_classes = len(Unique_Y_train_classes)
 
 # Parameters - Modifiable for Various Configurations
 embedding_size = 100
 batch_size = 100
 no_epochs = 50 # One iteration over all of the training data
 steps_per_epoch_travelled = X_train.shape[0] / batch_size # One gradient update, where in one step batch_size examples are processed
-
 
 
 def initialize_weights(shape, name=None, dtype=None):
@@ -54,14 +57,14 @@ def embedding_model(frames, h, w, c, dimensions, include_top=False, pooling=None
 def triplets_model(input_shape, embedding, include_top=False, pooling=None):
     anchor_input = Input(shape=input_shape, name='anchor_input')
     encoded_a = embedding(anchor_input)
-    prediction = Dense(nb_classes+1, activation='softmax',bias_initializer=initialize_bias)(encoded_a)
+    prediction = Dense(nb_classes, activation='softmax',bias_initializer=initialize_bias)(encoded_a)
     triplet_net = Model(inputs=[anchor_input],outputs=[prediction])
     return triplet_net
 
 build_embedding = embedding_model(num_frames, h, w, d, dimensions=embedding_size)
 build_triplet = triplets_model(input_shape=(num_frames, h, w, d), embedding=build_embedding)
 optimizer = Adam(lr = 0.00006)
-build_triplet.compile(loss=tf.keras.losses.CategoricalCrossentropy(),optimizer=optimizer, 
+build_triplet.compile(loss=tf.keras.losses.CategoricalCrossentropy(), optimizer=optimizer, 
                       metrics=[metrics.MeanSquaredError(), tf.keras.metrics.Recall(), tf.keras.metrics.Precision(),
                       tf.keras.metrics.CategoricalAccuracy(name='acc'),
                       CategoricalTruePositives(nb_classes, batch_size)])
@@ -70,7 +73,7 @@ build_triplet.summary()
 tcn_full_summary(build_embedding, expand_residual_blocks=True)
 plot_model(build_embedding, 'multi_input_and_output_model.png', show_shapes=True)
 
-labels_train = K.one_hot(Y_train, nb_classes+1)
+labels_train = K.one_hot(Y_train_numeric, nb_classes)
 history = build_triplet.fit(x=X_train, y=labels_train, batch_size=batch_size, epochs=200, verbose=1, callbacks=None, 
                               validation_split=0.02, validation_data=None, shuffle=True, class_weight=None, 
                               sample_weight=None, initial_epoch=0, steps_per_epoch=50, validation_steps=None)
