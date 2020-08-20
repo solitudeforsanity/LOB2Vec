@@ -27,7 +27,7 @@ def get_data(reason):
     """ Retrieves data based on needs of the training job. Some we split data into train and test, where as others we allow keras to split it automatically. 
     Args:
         reason (int): 
-        0 : Testing for working code
+        0 : Testing for working code. We name this 'Test_Model'
         1 : Train on all data with a 0.2 validation set
         2 : Train on data subset with validation in the early period with 0.2 in keras
         3 : Train on data subset with validation in the later period with 0.2 in keras
@@ -42,6 +42,7 @@ def get_data(reason):
         Y_train = np.load(paths.test_dest + '/' + str(num_frames) + '_small_Y.npy')
         X_test = np.load(paths.test_dest + '/' + str(num_frames) + '_small_X.npy')
         Y_test = np.load(paths.test_dest + '/' + str(num_frames) + '_small_Y.npy')
+        model_name = 'Test_Model'
     elif reason == 1:
         X_2016 = np.load(paths.dest_2016 + '/' + str(num_frames) + '_X.npy')
         Y_2016 = np.load(paths.dest_2016 + '/' + str(num_frames) + '_Y.npy')
@@ -49,6 +50,7 @@ def get_data(reason):
         Y_train = Y_2016
         X_test = []
         Y_test = []
+        model_name = 'Model_2016'
     elif reason == 2:
         X_2017 = np.load(paths.dest_2017 + '/' + str(num_frames) + '_X.npy')
         Y_2017 = np.load(paths.dest_2017 + '/' + str(num_frames) + '_Y.npy')
@@ -56,6 +58,7 @@ def get_data(reason):
         Y_train = Y_2017
         X_test = []
         Y_test = []
+        model_name = 'Model_2017'
     else:
         X_2016 = np.load(paths.dest_2016 + '/' + str(num_frames) + '_X.npy')
         Y_2016 = np.load(paths.dest_2016 + '/' + str(num_frames) + '_Y.npy')
@@ -66,15 +69,18 @@ def get_data(reason):
             Y_train = Y_2016.append(Y_2017)
             X_test = []
             Y_test = []
+            model_name = 'Model_All'
         elif reason == 4:
             X_train = X_2016
             Y_train = Y_2016
             X_test = X_2017
             Y_test = Y_2017
+            model_name = 'Model_Old_New'
         elif reason == 5:
             X_train = X_2017
             Y_train = Y_2017
             X_test = X_2016
             Y_test = Y_2016
+            model_name = 'Model_New_Old'
         
-    return X_train, Y_train, X_test, Y_test
+    return X_train, Y_train, X_test, Y_test, model_name
