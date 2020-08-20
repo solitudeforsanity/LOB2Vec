@@ -1,0 +1,7 @@
+.DS_Store
+.idea/*
+__pycache__/*
+/data/20160902/*
+/data/*
+/venv/*
+/src/paths.py
