@@ -5,3 +5,7 @@ __pycache__/*
 /data/*
 /venv/*
 /src/paths.py
+__pycache__/*
+.vscode/*
+/src/.ipynb_checkpoints/*
+.ipynb_checkpoints/*
