@@ -57,44 +57,44 @@ def get_data(reason):
         4 : Train on early period, validation on late period
         5 : Train on late period, validation on early period
     Returns:
-        list : Returns a list of arrays for X_train / X_test and Y_train / Y_test
+        list : Returns a list of arrays for X_train / X_val and Y_train / Y_val
     """
 
     if reason == 0:
-        X_train = np.load(paths.test_dest + '/' + str(num_frames) + '_small_X.npy')
-        Y_train = np.load(paths.test_dest + '/' + str(num_frames) + '_small_Y.npy')
-        X_test = np.load(paths.test_dest + '/' + str(num_frames) + '_small_X.npy')
-        Y_test = np.load(paths.test_dest + '/' + str(num_frames) + '_small_Y.npy')
-        model_name = 'Model_Test'
+        X_train = np.load(paths.dev_dest + '/' + str(num_frames) + '_small_X.npy')
+        Y_train = np.load(paths.dev_dest + '/' + str(num_frames) + '_small_Y.npy')
+        X_val = np.load(paths.dev_dest + '/' + str(num_frames) + '_small_X.npy')
+        Y_val = np.load(paths.dev_dest + '/' + str(num_frames) + '_small_Y.npy')
+        model_name = 'Model_Dev'
     elif reason == 1:
         X_2016 = np.load(paths.dest_2016 + '/' + str(num_frames) + '_X.npy')
         Y_2016 = np.load(paths.dest_2016 + '/' + str(num_frames) + '_Y.npy')
         X_train = X_2016
         Y_train = Y_2016
-        X_test = []
-        Y_test = []
+        X_val = []
+        Y_val = []
         model_name = 'Model_2016'
     elif reason == 2:
         X_2017 = np.load(paths.dest_2017 + '/' + str(num_frames) + '_X.npy')
         Y_2017 = np.load(paths.dest_2017 + '/' + str(num_frames) + '_Y.npy')
         X_train = X_2017
         Y_train = Y_2017
-        X_test = []
-        Y_test = []
+        X_val = []
+        Y_val = []
         model_name = 'Model_2017'
     elif reason == 3:
         # For Validation data only 2016
-        X_train = np.load(paths.dest_2016 + '/' + str(num_frames) + '_Val2016_X.npy')
-        Y_train = np.load(paths.dest_2016 + '/' + str(num_frames) + '_Val2016_Y.npy')
-        X_test = []
-        Y_test = []
+        X_train = np.load(paths.dest_2016 + '/' + str(num_frames) + '_Test2016_X.npy')
+        Y_train = np.load(paths.dest_2016 + '/' + str(num_frames) + '_Test2016_Y.npy')
+        X_val = []
+        Y_val = []
         model_name = 'ModelVal_2016'
     elif reason == 4 :
         # For Validation data only 2017
-        X_train = np.load(paths.dest_2017 + '/' + str(num_frames) + '_Val2017_X.npy')
-        Y_train = np.load(paths.dest_2017 + '/' + str(num_frames) + '_Val2017_Y.npy')
-        X_test = []
-        Y_test = []
+        X_train = np.load(paths.dest_2017 + '/' + str(num_frames) + '_Test2017_X.npy')
+        Y_train = np.load(paths.dest_2017 + '/' + str(num_frames) + '_Test2017_Y.npy')
+        X_val = []
+        Y_val = []
         model_name = 'ModelVal_2017'
     else:
         X_2016 = np.load(paths.dest_2016 + '/' + str(num_frames) + '_X.npy')
@@ -104,20 +104,20 @@ def get_data(reason):
         if reason == 5:
             X_train = X_2016.append(X_2017)
             Y_train = Y_2016.append(Y_2017)
-            X_test = []
-            Y_test = []
+            X_val = []
+            Y_val = []
             model_name = 'Model_All'
         elif reason == 6:
             X_train = X_2016
             Y_train = Y_2016
-            X_test = X_2017
-            Y_test = Y_2017
+            X_val = X_2017
+            Y_val = Y_2017
             model_name = 'Model_OldNew'
         elif reason == 7:
             X_train = X_2017
             Y_train = Y_2017
-            X_test = X_2016
-            Y_test = Y_2016
+            X_val = X_2016
+            Y_val = Y_2016
             model_name = 'Model_NewOld'
         
-    return X_train, Y_train, X_test, Y_test, model_name
+    return X_train, Y_train, X_val, Y_val, model_name

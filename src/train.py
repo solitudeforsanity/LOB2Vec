@@ -12,27 +12,31 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.utils import plot_model
 
-reason = 3 
+# Parameters - Modifiable for Various Configurations
+reason = 0
+embedding_size = 120
+batch_size = 100
+no_epochs = 10 # One iteration over all of the training data
 
 # Get Data and set classes 
-X_train, Y_train, X_test, Y_test, model_name = gd.get_data(reason) 
+X_train, Y_train, X_val, Y_val, model_name = gd.get_data(reason) 
 unique_Y_train_classes = list(set(Y_train))
+unique_Y_val_classes = list(set(Y_val))
 Y_train_dict = dict(zip(unique_Y_train_classes, list(range(1,len(unique_Y_train_classes)+1))))
+Y_val_dict = dict(zip(unique_Y_val_classes, list(range(1,len(unique_Y_val_classes)+1))))
 Y_train_numeric = [Y_train_dict[v] for v in Y_train]
+Y_val_numeric = [Y_val_dict[v] for v in Y_val]
+nb_classes = len(unique_Y_train_classes)
+labels_train = K.one_hot(Y_train_numeric, nb_classes)
+labels_val = K.one_hot(Y_train_numeric, nb_classes)
+
 
 # Parameters - Mostly static
 num_frames = 500 # Number of LOB States our book contains
 h = 30 # Book Depth 
 w = 2 # Buy side and sell side
 d = 2 # Price and Volume
-nb_classes = len(unique_Y_train_classes)
-
-# Parameters - Modifiable for Various Configurations
-embedding_size = 120
-batch_size = 100
-no_epochs = 5 # One iteration over all of the training data
 steps_per_epoch_travelled = math.ceil(X_train.shape[0] / batch_size) # One gradient update, where in one step batch_size examples are processed
-
 
 def initialize_weights(shape, name=None, dtype=None):
     """
@@ -61,12 +65,46 @@ def embedding_network(frames, h, w, c, dimensions, include_top=False, pooling=No
     out = Dense(embedding_size, activation=None, kernel_regularizer=l2(1e-3), kernel_initializer='he_uniform')(out)    
     return Model(inputs=inp, outputs=out)
 
+#----------------BASE MODEL-----------------#
+
 def model_base(input_shape, network, include_top=False, pooling=None):
     input = Input(shape=input_shape, name='input')
     encoded = network(input)
     prediction = Dense(nb_classes, activation='softmax', bias_initializer=initialize_bias)(encoded)
     output = Model(inputs=[input],outputs=[prediction])
     return output
+
+def train_model_base():
+    build_representation = embedding_network(num_frames, h, w, d, dimensions=embedding_size)
+    cc_model = model_base(input_shape=(num_frames, h, w, d), network=build_representation)
+    optimizer = Adam(lr = 0.00006)
+    cc_model.compile(loss=tf.keras.losses.CategoricalCrossentropy(), optimizer=optimizer, 
+                    metrics=[metrics.MeanSquaredError(), tf.keras.metrics.Recall(), tf.keras.metrics.Precision(),
+                    tf.keras.metrics.CategoricalAccuracy(name='acc'),
+                    CategoricalTruePositives(nb_classes, batch_size)])
+    build_representation.summary()
+    cc_model.summary()
+    tcn_full_summary(build_representation, expand_residual_blocks=True)
+    plot_model(build_representation, 'CC_Model.png', show_shapes=True)
+
+    callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3)
+    if reason != 6 and reason != 7 and reason != 0:
+        print('YOU ARE AT START')
+        trained_history = cc_model.fit(x=X_train, y=labels_train, batch_size=batch_size, epochs=no_epochs, verbose=1, callbacks=[callback], 
+                                validation_split=0.2, validation_data=None, shuffle=True, class_weight=None, 
+                                sample_weight=None, initial_epoch=0, steps_per_epoch=steps_per_epoch_travelled, validation_steps=None)
+    else:
+        print('KAUSHY YAY')
+        trained_history = cc_model.fit(x=X_train, y=labels_train, batch_size=batch_size, epochs=no_epochs, verbose=1, callbacks=[callback], 
+                                validation_split=None, validation_data=(X_val, labels_val), shuffle=True, class_weight=None, 
+                                sample_weight=None, initial_epoch=0, steps_per_epoch=steps_per_epoch_travelled, validation_steps=None)
+
+    build_representation.save(paths.model_save + model_name + '_CC_Representation' + str(embedding_size))
+    cc_model.save(paths.model_save + model_name + '_CC_Model' + str(embedding_size))
+    with open(paths.history_save + model_name + 'CC_History' + str(embedding_size), 'wb') as file_pi:
+        pickle.dump(trained_history.history, file_pi)
+
+#----------------TRIPLET MODEL-----------------#
 
 def triplets_model(input_shape, network, include_top=False, pooling=None):
 
@@ -85,6 +123,32 @@ def triplets_model(input_shape, network, include_top=False, pooling=None):
     triplet_net = Model(inputs=[anchor_input,positive_input,negative_input],outputs=[loss_layer])
     return triplet_net
 
+def train_triplet_model():
+    build_representation = embedding_network(num_frames, 30, w, d, dimensions=embedding_size)
+    tri_model = triplets_model(input_shape=(num_frames, 30, w, d), network=build_representation)
+    optimizer = Adam(lr = 0.00006)
+    tri_model.compile(loss=[None],optimizer=optimizer,sample_weight_mode="temporal")
+    build_representation.summary()
+    tri_model.summary()
+    tcn_full_summary(build_representation, expand_residual_blocks=True)
+    plot_model(build_representation, 'Triplet_Model.png', show_shapes=True)
+
+    if reason != 6 or reason != 7:
+        trained_history = tri_model.fit(x=gd.triplet_generator(batch_size, X_train, Y_train), y=None, batch_size=batch_size, epochs=no_epochs, 
+                                    verbose=1, callbacks=None, validation_data=None, shuffle=True, class_weight=None, 
+                                    sample_weight=None, initial_epoch=0, steps_per_epoch=steps_per_epoch_travelled, validation_steps=None)
+    else:
+         # TO : YOU HAVE TO COMPLETE THIS CORRECTLY also early stopping needed to be complete
+        trained_history = tri_model.fit(x=X_train, y=labels_train, batch_size=batch_size, epochs=no_epochs, verbose=1, callbacks=None, 
+                                validation_split=None, validation_data=(X_val, labels_val), shuffle=True, class_weight=None, 
+                                sample_weight=None, initial_epoch=0, steps_per_epoch=steps_per_epoch_travelled, validation_steps=None)
+
+    build_representation.save(paths.model_save + model_name + '_Triplet_Representation' + str(embedding_size))
+    tri_model.save(paths.model_save + model_name + '_Triplet_Model' + str(embedding_size))
+    with open(paths.history_save + model_name + '_Triplet_History' + str(embedding_size), 'wb') as file_pi:
+        pickle.dump(trained_history.history, file_pi)
+
+#----------------QUADRUPLET MODEL-----------------#
 
 def quadruplet_model(input_shape, network, margin=0.1, margin2=0.01):
         '''
@@ -118,61 +182,6 @@ def quadruplet_model(input_shape, network, margin=0.1, margin2=0.01):
         # return the model
         return network_train
 
-
-def train_model_base():
-    build_representation = embedding_network(num_frames, h, w, d, dimensions=embedding_size)
-    cc_model = model_base(input_shape=(num_frames, h, w, d), network=build_representation)
-    optimizer = Adam(lr = 0.00006)
-    cc_model.compile(loss=tf.keras.losses.CategoricalCrossentropy(), optimizer=optimizer, 
-                    metrics=[metrics.MeanSquaredError(), tf.keras.metrics.Recall(), tf.keras.metrics.Precision(),
-                    tf.keras.metrics.CategoricalAccuracy(name='acc'),
-                    CategoricalTruePositives(nb_classes, batch_size)])
-    build_representation.summary()
-    cc_model.summary()
-    tcn_full_summary(build_representation, expand_residual_blocks=True)
-    plot_model(build_representation, 'CC_Model.png', show_shapes=True)
-
-    labels_train = K.one_hot(Y_train_numeric, nb_classes)
-    if reason != 6 or reason != 7:
-        trained_history = cc_model.fit(x=X_train, y=labels_train, batch_size=batch_size, epochs=no_epochs, verbose=1, callbacks=None, 
-                                validation_split=0.2, validation_data=None, shuffle=True, class_weight=None, 
-                                sample_weight=None, initial_epoch=0, steps_per_epoch=steps_per_epoch_travelled, validation_steps=None)
-    else:
-        # TO : YOU HAVE TO COMPLETE THIS CORRECTLY
-        trained_history = cc_model.fit(x=X_train, y=labels_train, batch_size=batch_size, epochs=no_epochs, verbose=1, callbacks=None, 
-                                validation_split=None, validation_data=X_test, shuffle=True, class_weight=None, 
-                                sample_weight=None, initial_epoch=0, steps_per_epoch=steps_per_epoch_travelled, validation_steps=None)
-
-    cc_model.save(paths.model_save + model_name + '_CC' + str(embedding_size))
-    with open(paths.history_save + model_name + 'CC' + str(embedding_size), 'wb') as file_pi:
-        pickle.dump(trained_history.history, file_pi)
-
-def train_triplet_model():
-    build_representation = embedding_network(num_frames, 30, w, d, dimensions=embedding_size)
-    tri_model = triplets_model(input_shape=(num_frames, 30, w, d), network=build_representation)
-    optimizer = Adam(lr = 0.00006)
-    tri_model.compile(loss=[None],optimizer=optimizer,sample_weight_mode="temporal")
-    build_representation.summary()
-    tri_model.summary()
-    tcn_full_summary(build_representation, expand_residual_blocks=True)
-    plot_model(build_representation, 'Triplet_Model.png', show_shapes=True)
-
-    labels_train = K.one_hot(Y_train_numeric, nb_classes)
-    if reason != 6 or reason != 7:
-        trained_history = tri_model.fit(x=gd.triplet_generator(batch_size, X_train, Y_train), y=None, batch_size=batch_size, epochs=no_epochs, 
-                                    verbose=1, callbacks=None, validation_data=None, shuffle=True, class_weight=None, 
-                                    sample_weight=None, initial_epoch=0, steps_per_epoch=steps_per_epoch_travelled, validation_steps=None)
-    else:
-         # TO : YOU HAVE TO COMPLETE THIS CORRECTLY
-        trained_history = tri_model.fit(x=X_train, y=labels_train, batch_size=batch_size, epochs=no_epochs, verbose=1, callbacks=None, 
-                                validation_split=None, validation_data=X_test, shuffle=True, class_weight=None, 
-                                sample_weight=None, initial_epoch=0, steps_per_epoch=steps_per_epoch_travelled, validation_steps=None)
-
-    tri_model.save(paths.model_save + model_name + '_Triplet' + str(embedding_size))
-    with open(paths.history_save + model_name + '_Triplet' + str(embedding_size), 'wb') as file_pi:
-        pickle.dump(trained_history.history, file_pi)
-
-
 def train_quadruplet_model():
     build_representation = embedding_network(num_frames, 30, w, d, dimensions=embedding_size)
     quad_model = quadruplet_model(input_shape=(num_frames, 30, w, d), network=build_representation)
@@ -183,19 +192,19 @@ def train_quadruplet_model():
     tcn_full_summary(build_representation, expand_residual_blocks=True)
     plot_model(build_representation, 'Quadruplet_Model.png', show_shapes=True)
 
-    labels_train = K.one_hot(Y_train_numeric, nb_classes)
     if reason != 6 or reason != 7:
         trained_history = quad_model.fit(x=gd.quadruplet_generator(batch_size, X_train, Y_train), y=None, batch_size=batch_size, epochs=no_epochs, 
                                     verbose=1, callbacks=None, validation_data=None, shuffle=True, class_weight=None, 
                                     sample_weight=None, initial_epoch=0, steps_per_epoch=steps_per_epoch_travelled, validation_steps=None)
     else:
-         # TO : YOU HAVE TO COMPLETE THIS CORRECTLY
+         # TO : YOU HAVE TO COMPLETE THIS CORRECTLY also early stopping needs to be complete
         trained_history = quad_model.fit(x=X_train, y=labels_train, batch_size=batch_size, epochs=no_epochs, verbose=1, callbacks=None, 
-                                validation_split=None, validation_data=X_test, shuffle=True, class_weight=None, 
+                                validation_split=None, validation_data=(X_val, labels_val), shuffle=True, class_weight=None, 
                                 sample_weight=None, initial_epoch=0, steps_per_epoch=steps_per_epoch_travelled, validation_steps=None)
 
-    quad_model.save(paths.model_save + model_name + '_Quadruplet' + str(embedding_size))
-    with open(paths.history_save + model_name + 'Quadruplet' + str(embedding_size), 'wb') as file_pi:
+    build_representation.save(paths.model_save + model_name + '_Quadruplet_Representation' + str(embedding_size))
+    quad_model.save(paths.model_save + model_name + '_Quadruplet_Model' + str(embedding_size))
+    with open(paths.history_save + model_name + 'Quadruplet_History' + str(embedding_size), 'wb') as file_pi:
         pickle.dump(trained_history.history, file_pi)
 
 
