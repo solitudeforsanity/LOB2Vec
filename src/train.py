@@ -12,7 +12,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.utils import plot_model
 
-reason = 0 
+reason = 3 
 
 # Get Data and set classes 
 X_train, Y_train, X_test, Y_test, model_name = gd.get_data(reason) 
@@ -133,7 +133,7 @@ def train_model_base():
     plot_model(build_representation, 'CC_Model.png', show_shapes=True)
 
     labels_train = K.one_hot(Y_train_numeric, nb_classes)
-    if reason != 4 or reason != 5:
+    if reason != 6 or reason != 7:
         trained_history = cc_model.fit(x=X_train, y=labels_train, batch_size=batch_size, epochs=no_epochs, verbose=1, callbacks=None, 
                                 validation_split=0.2, validation_data=None, shuffle=True, class_weight=None, 
                                 sample_weight=None, initial_epoch=0, steps_per_epoch=steps_per_epoch_travelled, validation_steps=None)
@@ -158,7 +158,7 @@ def train_triplet_model():
     plot_model(build_representation, 'Triplet_Model.png', show_shapes=True)
 
     labels_train = K.one_hot(Y_train_numeric, nb_classes)
-    if reason != 4 or reason != 5:
+    if reason != 6 or reason != 7:
         trained_history = tri_model.fit(x=gd.triplet_generator(batch_size, X_train, Y_train), y=None, batch_size=batch_size, epochs=no_epochs, 
                                     verbose=1, callbacks=None, validation_data=None, shuffle=True, class_weight=None, 
                                     sample_weight=None, initial_epoch=0, steps_per_epoch=steps_per_epoch_travelled, validation_steps=None)
@@ -184,7 +184,7 @@ def train_quadruplet_model():
     plot_model(build_representation, 'Quadruplet_Model.png', show_shapes=True)
 
     labels_train = K.one_hot(Y_train_numeric, nb_classes)
-    if reason != 4 or reason != 5:
+    if reason != 6 or reason != 7:
         trained_history = quad_model.fit(x=gd.quadruplet_generator(batch_size, X_train, Y_train), y=None, batch_size=batch_size, epochs=no_epochs, 
                                     verbose=1, callbacks=None, validation_data=None, shuffle=True, class_weight=None, 
                                     sample_weight=None, initial_epoch=0, steps_per_epoch=steps_per_epoch_travelled, validation_steps=None)

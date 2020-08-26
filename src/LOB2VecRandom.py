@@ -292,7 +292,7 @@ class call_back(tf.keras.callbacks.Callback):
     draw_roc(fpr, tpr, thresholds, auc)
    # draw_interdist(build_embedding, n_iteration)
 
-history = build_triplet.fit(x=triplet_generator_spoof(batch_size, X_train, Y_train), y=None, batch_size=batch_size, epochs=5, verbose=1, callbacks=None, 
+history = build_triplet.fit(x=gd.triplet_generator(batch_size, X_train, Y_train), y=None, batch_size=batch_size, epochs=5, verbose=1, callbacks=None, 
                               validation_data=None, shuffle=True, class_weight=None, 
                               sample_weight=None, initial_epoch=0, steps_per_epoch=100, validation_steps=None)
 

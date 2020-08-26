@@ -246,7 +246,7 @@ network4_train.compile(loss=None,optimizer=optimizer4)
 network4_train.summary()
 #plot_model(network4_train, 'model_summary_4x.png', show_shapes=True)
 
-def get_quadruplets_batch_spoof(batch_size, lob_states, labels):
+def get_quadruplets_batch(batch_size, lob_states, labels):
     n_examples, t, h, w, d = lob_states.shape
     quadruplets = [np.zeros((batch_size, t, h, w, d)) for i in range(4)]
 

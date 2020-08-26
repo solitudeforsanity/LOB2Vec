@@ -93,19 +93,22 @@ def convert_data_to_labels(data_source, frames):
     return X, Y
 
 
-def save_data(data_source, data_dest):
+def save_data(data_source, data_dest, datatype):
     X, Y = convert_data_to_labels(data_source, num_frames)
 
-    np.save(data_dest + '/' + str(num_frames) + '_X.npy', X)
-    np.save(data_dest + '/' + str(num_frames) + '_Y.npy', Y)
+    np.save(data_dest + '/' + str(num_frames) + datatype + 'X.npy', X)
+    np.save(data_dest + '/' + str(num_frames) + datatype + 'Y.npy', Y)
 
     print('Written To ' + str(data_dest + '/' + str(num_frames)))
 
 # Test
 
 # 2016
-#save_data(paths.source_2016, paths.dest_2016)
+#save_data(paths.source_2016, paths.dest_2016, '_')
 
 # 2017
-save_data(paths.source_2017, paths.dest_2017)
+#save_data(paths.source_2017, paths.dest_2017, '_')
+
+# Validation
+save_data(paths.source_val_2017, paths.dest_2017, '_Val2017_')
 
