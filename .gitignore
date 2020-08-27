@@ -9,3 +9,4 @@ __pycache__/*
 .vscode/*
 /src/.ipynb_checkpoints/*
 .ipynb_checkpoints/*
+/src/notebooks/.ipynb_checkpoints
