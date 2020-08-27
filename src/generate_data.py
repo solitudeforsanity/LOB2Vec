@@ -1,7 +1,9 @@
 import numpy as np
 import paths
+from tensorflow.keras.utils import Sequence
 
 num_frames = 500
+t, h, w, d = num_frames, 30, 2, 2
 
 def get_triplet_batch(batch_size, lob_states, labels):
     n_examples, t, h, w, d = lob_states.shape
@@ -61,10 +63,10 @@ def get_data(reason):
     """
 
     if reason == 0:
-        X_train = np.load(paths.dev_dest + '/' + str(num_frames) + '_small_X.npy')
-        Y_train = np.load(paths.dev_dest + '/' + str(num_frames) + '_small_Y.npy')
-        X_val = np.load(paths.dev_dest + '/' + str(num_frames) + '_small_X.npy')
-        Y_val = np.load(paths.dev_dest + '/' + str(num_frames) + '_small_Y.npy')
+        X_train = np.load(paths.dev_dest + '/' + str(num_frames) + '_X.npy')
+        Y_train = np.load(paths.dev_dest + '/' + str(num_frames) + '_Y.npy')
+        X_val = np.load(paths.dev_dest + '/' + str(num_frames) + '_X.npy')
+        Y_val = np.load(paths.dev_dest + '/' + str(num_frames) + '_Y.npy')
         model_name = 'Model_Dev'
     elif reason == 1:
         X_2016 = np.load(paths.dest_2016 + '/' + str(num_frames) + '_X.npy')
@@ -88,14 +90,14 @@ def get_data(reason):
         Y_train = np.load(paths.dest_2016 + '/' + str(num_frames) + '_Test2016_Y.npy')
         X_val = []
         Y_val = []
-        model_name = 'ModelVal_2016'
+        model_name = 'ModelTest_2016'
     elif reason == 4 :
         # For Validation data only 2017
         X_train = np.load(paths.dest_2017 + '/' + str(num_frames) + '_Test2017_X.npy')
         Y_train = np.load(paths.dest_2017 + '/' + str(num_frames) + '_Test2017_Y.npy')
         X_val = []
         Y_val = []
-        model_name = 'ModelVal_2017'
+        model_name = 'ModelTest_2017'
     else:
         X_2016 = np.load(paths.dest_2016 + '/' + str(num_frames) + '_X.npy')
         Y_2016 = np.load(paths.dest_2016 + '/' + str(num_frames) + '_Y.npy')
@@ -121,3 +123,59 @@ def get_data(reason):
             model_name = 'Model_NewOld'
         
     return X_train, Y_train, X_val, Y_val, model_name
+
+    # -------------- FUTURE WORK ---------------- #
+class DataGenerator(Sequence):
+    'Generates data for Keras'
+    def __init__(self, list_IDs, labels, batch_size=32, dim=(t,h,w,d), n_classes=25, shuffle=True):
+        'Initialization'
+        self.dim = dim
+        self.batch_size = batch_size
+        self.labels = labels
+        self.list_IDs = list_IDs
+        self.n_classes = n_classes
+        self.shuffle = shuffle
+        self.on_epoch_end()
+
+    def __len__(self):
+        'Denotes the number of batches per epoch'
+        return int(np.floor(len(self.list_IDs) / self.batch_size))
+
+    def __getitem__(self, index):
+        'Generate one batch of data'
+        # Generate indexes of the batch
+        indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
+
+        # Find list of IDs
+        list_IDs_temp = [self.list_IDs[k] for k in indexes]
+
+        # Generate data
+        X, y = self.__data_generation(list_IDs_temp)
+
+        return X, y
+
+    def on_epoch_end(self):
+        'Updates indexes after each epoch'
+        self.indexes = np.arange(len(self.list_IDs))
+        if self.shuffle == True:
+            np.random.shuffle(self.indexes)
+
+    def __data_generation(self, list_IDs_temp):
+        'Generates data containing batch_size samples' # X : (n_samples, *dim, n_channels)
+        X = [np.zeros((self.batch_size, t, h, w, d)) for i in range(1)]
+        y = np.empty((self.batch_size), dtype=int)
+
+        for i, ID in enumerate(list_IDs_temp):
+            # Store sample
+            X[i] = np.load(paths.dev_dest_generator + 'X/' + str(2) + '.npy')
+
+            # Store class
+            y[i] = self.labels[ID]
+
+        return X, K.one_hot(y, self.n_classes)
+
+def generate_data_using_generator():
+    labels = y = np.load(paths.dev_dest_generator + 'Y.npy')
+    x_ids = list(range(0, len(labels)))
+    training_generator = DataGenerator(x_ids, labels)
+    return training_generator

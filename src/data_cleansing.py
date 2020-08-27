@@ -10,6 +10,7 @@ if module_path not in sys.path:
 if project_path not in sys.path:
     sys.path.append(project_path)
 
+import config
 import numpy as np
 import pandas as pd
 import paths
@@ -101,6 +102,15 @@ def save_data(data_source, data_dest, datatype):
 
     print('Written To ' + str(data_dest + '/' + str(num_frames)))
 
+# To run this you need high memory machine and will run on the compiled data from above
+def save_individual_files(data_source, save_location):
+    X = np.load(data_source + '/500_X.npy')
+    y = np.load(data_source + '/500_Y.npy')
+    {np.save(save_location + 'X/' + str(k) + '.npy', v) for k, v in enumerate(X)}
+    Y_numeric = [config.label_dict[v] for v in y]
+    np.save(save_location + 'Y.npy', Y_numeric)
+  
+
 # Test
 
 # 2016
@@ -109,6 +119,9 @@ def save_data(data_source, data_dest, datatype):
 # 2017
 #save_data(paths.source_2017, paths.dest_2017, '_')
 
-# Validation
-save_data(paths.source_val_2017, paths.dest_2017, '_Val2017_')
+# Test Data
+#save_data(paths.source_test_2017, paths.dest_2017, '_Test2017_')
+
+save_individual_files(paths.dev_dest, paths.dev_dest_generator)
+#save_individual_files(paths.dest_2016, paths.dest_2016_generator)
 
