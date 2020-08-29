@@ -1,9 +1,21 @@
 import numpy as np
 import paths
+import tensorflow as tf
 from tensorflow.keras.utils import Sequence
 
 num_frames = 500
 t, h, w, d = num_frames, 30, 2, 2
+
+def batch_generator(batch_size, X_train, Y_train, Y_labels):
+    while True:
+        X = np.empty((batch_size, t, h, w, d))
+        y = np.empty((batch_size, Y_labels.shape[1]))
+
+        for i in range(batch_size):
+            idx = np.random.choice(Y_train.shape[0], 1, replace=False)
+            X[i] = X_train[idx[0]]
+            y[i] = Y_labels[idx[0]]
+        yield X, y 
 
 def get_triplet_batch(batch_size, lob_states, labels):
     n_examples, t, h, w, d = lob_states.shape
@@ -67,15 +79,16 @@ def get_data(reason):
         Y_train = np.load(paths.dev_dest + '/' + str(num_frames) + '_Y.npy')
         X_val = np.load(paths.dev_dest + '/' + str(num_frames) + '_X.npy')
         Y_val = np.load(paths.dev_dest + '/' + str(num_frames) + '_Y.npy')
-        model_name = 'Model_Dev'
+        model_name = 'Model_Dev_'
     elif reason == 1:
+        # TMP USING VALIDATION DATA FOR THIS
         X_2016 = np.load(paths.dest_2016 + '/' + str(num_frames) + '_X.npy')
         Y_2016 = np.load(paths.dest_2016 + '/' + str(num_frames) + '_Y.npy')
         X_train = X_2016
         Y_train = Y_2016
-        X_val = []
-        Y_val = []
-        model_name = 'Model_2016'
+        X_val = np.load(paths.dest_2016 + '/' + str(num_frames) + '_Test2016_X.npy')
+        Y_val = np.load(paths.dest_2016 + '/' + str(num_frames) + '_Test2016_Y.npy')
+        model_name = 'Model_2016_'
     elif reason == 2:
         X_2017 = np.load(paths.dest_2017 + '/' + str(num_frames) + '_X.npy')
         Y_2017 = np.load(paths.dest_2017 + '/' + str(num_frames) + '_Y.npy')
@@ -83,21 +96,21 @@ def get_data(reason):
         Y_train = Y_2017
         X_val = []
         Y_val = []
-        model_name = 'Model_2017'
+        model_name = 'Model_2017_'
     elif reason == 3:
         # For Validation data only 2016
         X_train = np.load(paths.dest_2016 + '/' + str(num_frames) + '_Test2016_X.npy')
         Y_train = np.load(paths.dest_2016 + '/' + str(num_frames) + '_Test2016_Y.npy')
         X_val = []
         Y_val = []
-        model_name = 'ModelTest_2016'
+        model_name = 'ModelTest_2016_'
     elif reason == 4 :
         # For Validation data only 2017
         X_train = np.load(paths.dest_2017 + '/' + str(num_frames) + '_Test2017_X.npy')
         Y_train = np.load(paths.dest_2017 + '/' + str(num_frames) + '_Test2017_Y.npy')
         X_val = []
         Y_val = []
-        model_name = 'ModelTest_2017'
+        model_name = 'ModelTest_2017_'
     else:
         X_2016 = np.load(paths.dest_2016 + '/' + str(num_frames) + '_X.npy')
         Y_2016 = np.load(paths.dest_2016 + '/' + str(num_frames) + '_Y.npy')
@@ -108,19 +121,19 @@ def get_data(reason):
             Y_train = Y_2016.append(Y_2017)
             X_val = []
             Y_val = []
-            model_name = 'Model_All'
+            model_name = 'Model_All_'
         elif reason == 6:
             X_train = X_2016
             Y_train = Y_2016
             X_val = X_2017
             Y_val = Y_2017
-            model_name = 'Model_OldNew'
+            model_name = 'Model_OldNew_'
         elif reason == 7:
             X_train = X_2017
             Y_train = Y_2017
             X_val = X_2016
             Y_val = Y_2016
-            model_name = 'Model_NewOld'
+            model_name = 'Model_NewOld_'
         
     return X_train, Y_train, X_val, Y_val, model_name
 

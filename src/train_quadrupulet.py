@@ -47,31 +47,32 @@ def quadruplet_model(input_shape, network, margin=0.1, margin2=0.01):
         # return the model
         return network_train
 
-def train_quadruplet_model(X_train, Y_train, X_val, labels_train, labels_val, num_frames, h, w, d, no_epochs, steps_per_epoch_travelled, batch_size, embedding_size, reason, model_name, nb_classes):
-    build_representation = model.embedding_network(num_frames, 30, w, d, dimensions=embedding_size)
+def train_quadruplet_model(X_train, Y_train, X_val, Y_val, labels_train, labels_val, num_frames, h, w, d, no_epochs, steps_per_epoch_travelled, batch_size, embedding_size, reason, model_name, nb_classes):
+    build_representation = model.embedding_network(num_frames, 30, w, d, embedding_size, dimensions=embedding_size)
     quad_model = quadruplet_model(input_shape=(num_frames, 30, w, d), network=build_representation)
     optimizer = Adam(lr = 0.00006)
     quad_model.compile(loss=[None],optimizer=optimizer,sample_weight_mode="temporal")
     build_representation.summary()
     quad_model.summary()
     tcn_full_summary(build_representation, expand_residual_blocks=True)
-    plot_model(build_representation, 'Quadruplet_Model.png', show_shapes=True)
+    plot_model(build_representation, paths.model_images + '/Quadruplet_Model.png', show_shapes=True)
 
     if reason != 6 or reason != 7:
         trained_history = quad_model.fit(x=gd.quadruplet_generator(batch_size, X_train, Y_train), y=None, batch_size=batch_size, epochs=no_epochs, 
-                                    verbose=1, callbacks=None, validation_data=None, shuffle=True, class_weight=None, 
+                                    verbose=2, callbacks=None, validation_data=None, shuffle=True, class_weight=None, 
                                     sample_weight=None, initial_epoch=0, steps_per_epoch=steps_per_epoch_travelled, validation_steps=None)
     else:
          # TO : YOU HAVE TO COMPLETE THIS CORRECTLY also early stopping needs to be complete
-        trained_history = quad_model.fit(x=X_train, y=labels_train, batch_size=batch_size, epochs=no_epochs, verbose=1, callbacks=None, 
+        trained_history = quad_model.fit(x=X_train, y=labels_train, batch_size=batch_size, epochs=no_epochs, verbose=2, callbacks=None, 
                                 validation_split=None, validation_data=(X_val, labels_val), shuffle=True, class_weight=None, 
                                 sample_weight=None, initial_epoch=0, steps_per_epoch=steps_per_epoch_travelled, validation_steps=None)
 
-    build_representation.save(paths.model_save + model_name + '_Quadruplet_Representation' + str(embedding_size))
-    quad_model.save(paths.model_save + model_name + '_Quadruplet_Model' + str(embedding_size))
-    with open(paths.history_save + model_name + 'Quadruplet_History' + str(embedding_size), 'wb') as file_pi:
+    build_representation.save(paths.model_save + model_name + str(reason) + '_Quadruplet_Representation' + str(embedding_size))
+    quad_model.save(paths.model_save + model_name + str(reason) + '_Quadruplet_Model' + str(embedding_size))
+    with open(paths.history_save + model_name + str(reason) + '_Quadruplet_History' + str(embedding_size), 'wb') as file_pi:
         pickle.dump(trained_history.history, file_pi)
 
 if __name__ == "__main__":
-    X_train, Y_train, X_val, labels_train, labels_val, num_frames, h, w, d, no_epochs, steps_per_epoch_travelled, batch_size, embedding_size, reason, model_name, nb_classes = model.return_parameters()
-    train_quadruplet_model(X_train, Y_train, X_val, labels_train, labels_val, num_frames, h, w, d, no_epochs, steps_per_epoch_travelled, batch_size, embedding_size, reason, model_name, nb_classes)
+    my_reason = 1
+    X_train, Y_train, X_val, Y_val, labels_train, labels_val, num_frames, h, w, d, no_epochs, steps_per_epoch_travelled, batch_size, embedding_size, reason, model_name, nb_classes = model.return_parameters(my_reason)
+    train_quadruplet_model(X_train, Y_train, X_val, Y_val, labels_train, labels_val, num_frames, h, w, d, no_epochs, steps_per_epoch_travelled, batch_size, embedding_size, reason, model_name, nb_classes)
