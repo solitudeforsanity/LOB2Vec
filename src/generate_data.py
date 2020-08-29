@@ -188,7 +188,9 @@ class DataGenerator(Sequence):
         return X, K.one_hot(y, self.n_classes)
 
 def generate_data_using_generator():
-    labels = y = np.load(paths.dev_dest_generator + 'Y.npy')
+    labels = np.load(paths.dev_dest_generator + 'Y.npy')
     x_ids = list(range(0, len(labels)))
     training_generator = DataGenerator(x_ids, labels)
     return training_generator
+
+generate_data_using_generator()

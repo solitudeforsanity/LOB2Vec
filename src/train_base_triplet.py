@@ -22,8 +22,8 @@ def model_base(input_shape, network, nb_classes, include_top=False, pooling=None
     output = Model(inputs=[input],outputs=[prediction])
     return output
 
-def train_model_base(X_train, Y_train, X_val, Y_val, labels_train, labels_val, num_frames, h, w, d, no_epochs, steps_per_epoch_travelled, batch_size, embedding_size, reason, model_name, nb_classes):
-    build_representation = model.embedding_network(num_frames, h, w, d, dimensions=embedding_size)
+def train_model_base(X_train, Y_train, X_val, Y_val, labels_train, labels_val, num_frames, h, w, d, no_epochs, steps_per_epoch_travelled, batch_size, embedding_size, model_name, nb_classes, reason):
+    build_representation = model.embedding_network(num_frames, h, w, d)
     cc_model = model_base(input_shape=(num_frames, h, w, d), network=build_representation, nb_classes=nb_classes)
     optimizer = Adam(lr = 0.00006)
     cc_model.compile(loss=tf.keras.losses.CategoricalCrossentropy(), optimizer=optimizer, 
@@ -66,7 +66,7 @@ def triplets_model(input_shape, network, include_top=False, pooling=None):
     return triplet_net
 
 def train_triplet_model(embedding_network, X_train, Y_train, X_val, Y_val, labels_train, labels_val, num_frames, h, w, d, no_epochs, steps_per_epoch_travelled, batch_size, embedding_size, reason, model_name, nb_classes):
-    build_representation = embedding_network(num_frames, 30, w, d, embedding_size, dimensions=embedding_size)
+    build_representation = embedding_network(num_frames, 30, w, d, embedding_size)
     tri_model = triplets_model(input_shape=(num_frames, 30, w, d), network=build_representation)
     optimizer = Adam(lr = 0.00006)
     tri_model.compile(loss=[None],optimizer=optimizer,sample_weight_mode="temporal")
@@ -92,9 +92,9 @@ def train_triplet_model(embedding_network, X_train, Y_train, X_val, Y_val, label
 
 
 if __name__ == "__main__":
-    my_reason = 1
+    my_reason = 0
     X_train, Y_train, X_val, Y_val, labels_train, labels_val, num_frames, h, w, d, no_epochs, steps_per_epoch_travelled, batch_size, embedding_size, model_name, nb_classes = model.return_parameters(my_reason)
-    embedded_network = train_model_base(X_train, Y_train, X_val, Y_val, labels_train, labels_val, num_frames, h, w, d, no_epochs, steps_per_epoch_travelled, batch_size, embedding_size, model_name, nb_classes)
+    embedded_network =  train_model_base(X_train, Y_train, X_val, Y_val, labels_train, labels_val, num_frames, h, w, d, no_epochs, steps_per_epoch_travelled, batch_size, embedding_size, model_name, nb_classes, my_reason)
     train_triplet_model(embedded_network, X_train, Y_train, X_val, Y_val, labels_train, labels_val, num_frames, h, w, d, no_epochs, steps_per_epoch_travelled, batch_size, embedding_size, model_name, nb_classes)
 
 
