@@ -1,5 +1,6 @@
 import model
 import generate_data as gd
+import evaluation
 import math
 import numpy as np
 import paths
@@ -33,8 +34,8 @@ def triplets_model(input_shape, network, include_top=False, pooling=None):
     triplet_net = Model(inputs=[anchor_input,positive_input,negative_input],outputs=[loss_layer])
     return triplet_net
 
-def train_triplet_model(X_train, Y_train, X_val, Y_val, labels_train, labels_val, num_frames, h, w, d, no_epochs, steps_per_epoch_travelled, batch_size, embedding_size, reason, model_name, nb_classes):
-    build_representation = model.embedding_network(num_frames, 30, w, d, dimensions=embedding_size)
+def train_triplet_model(training_gen, validation_gen, model_name, num_frames, h, w, d, no_epochs, steps_per_epoch_travelled, val_steps_per_epoch_travelled, batch_size, embedding_size, nb_classes, reason):
+    build_representation = model.embedding_network(num_frames, h, w, d, embedding_size)
     tri_model = triplets_model(input_shape=(num_frames, 30, w, d), network=build_representation)
     optimizer = Adam(lr = 0.00006)
     tri_model.compile(loss=[None],optimizer=optimizer,sample_weight_mode="temporal")
@@ -43,22 +44,65 @@ def train_triplet_model(X_train, Y_train, X_val, Y_val, labels_train, labels_val
     tcn_full_summary(build_representation, expand_residual_blocks=True)
     plot_model(build_representation, paths.model_images + '/Triplet_Model.png', show_shapes=True)
 
-    if reason != 6 or reason != 7:
-        trained_history = tri_model.fit(x=gd.triplet_generator(batch_size, X_train, Y_train), y=None, batch_size=batch_size, epochs=no_epochs, 
-                                    verbose=2, callbacks=None, validation_data=None, shuffle=True, class_weight=None, 
-                                    sample_weight=None, initial_epoch=0, steps_per_epoch=steps_per_epoch_travelled, validation_steps=None)
-    else:
-        # early stopping needed to be complete
-        trained_history = tri_model.fit(x=X_train, y=labels_train, batch_size=batch_size, epochs=no_epochs, verbose=2, callbacks=None, 
-                                validation_split=None, validation_data=(X_val, labels_val), shuffle=True, class_weight=None, 
-                                sample_weight=None, initial_epoch=0, steps_per_epoch=steps_per_epoch_travelled, validation_steps=None)
+    trained_history = tri_model.fit(x=training_gen, y=None, batch_size=batch_size, epochs=no_epochs, verbose=1, callbacks=None,
+                                   shuffle=True, class_weight=None, sample_weight=None, initial_epoch=0, steps_per_epoch=steps_per_epoch_travelled*0.9, max_queue_size=10, workers=1, use_multiprocessing=False,
+                                   validation_steps=val_steps_per_epoch_travelled*0.9,  validation_batch_size=batch_size, validation_freq=1, validation_data=validation_gen, validation_split=0.0)
+
 
     build_representation.save(paths.model_save + model_name + str(reason) + '_Triplet_Representation' + str(embedding_size))
     tri_model.save(paths.model_save + model_name + str(reason) + '_Triplet_Model' + str(embedding_size))
-    with open(paths.history_save + model_name + str(reason) + '_Triplet_History' + str(embedding_size), 'wb') as file_pi:
-        pickle.dump(trained_history.history, file_pi)
+    
+    evaluation.eva_plot(trained_history, no_epochs, model_name + '_triplet')
+    return tri_model, build_representation
+
+def compute_probs(network,X,Y):
+        '''
+        Input
+            network : current NN to compute embeddings
+            X : tensor of shape (m,w,h,1) containing pics to evaluate
+            Y : tensor of shape (m,) containing true class
+            
+        Returns
+            probs : array of shape (m,m) containing distances
+        
+        '''
+        m = X.shape[0]
+        nbevaluation = int(m*(m-1)/2)
+        probs = np.zeros((nbevaluation))
+        y = np.zeros((nbevaluation))
+        
+        #Compute all embeddings for all pics with current network
+        embeddings = network.predict(X)
+        
+        size_embedding = embeddings.shape[1]
+        
+        #For each pics of our dataset
+        k = 0
+        for i in range(m):
+                #Against all other images
+                for j in range(i+1,m):
+                    #compute the probability of being the right decision : it should be 1 for right class, 0 for all other classes
+                    probs[k] = -compute_dist(embeddings[i,:],embeddings[j,:])
+                    if (Y[i]==Y[j]):
+                        y[k] = 1
+                        #print("{3}:{0} vs {1} : {2}\tSAME".format(i,j,probs[k],k))
+                    else:
+                        y[k] = 0
+                        #print("{3}:{0} vs {1} : \t\t\t{2}\tDIFF".format(i,j,probs[k],k))
+                    k += 1
+        return probs,y
+    
 
 if __name__ == "__main__":
-    my_reason = 1
-    X_train, Y_train, X_val, Y_val, labels_train, labels_val, num_frames, h, w, d, no_epochs, steps_per_epoch_travelled, batch_size, embedding_size, reason, model_name, nb_classes = model.return_parameters(my_reason)
-    train_triplet_model(X_train, Y_train, X_val, Y_val, labels_train, labels_val, num_frames, h, w, d, no_epochs, steps_per_epoch_travelled, batch_size, embedding_size, reason, model_name, nb_classes)
+    my_reason = 0
+    gen_type = 1
+    print('WORKING ON TRAINING TRIPLET')
+    
+    training_gen, validation_gen, testing_gen, model_name, num_frames, h, w, d, no_epochs, steps_per_epoch_travelled, val_steps_per_epoch_travelled, \
+                                                                    batch_size, embedding_size, nb_classes = model.return_parameters(my_reason, gen_type)
+    print(training_gen)
+    triplet_model, network = train_triplet_model(training_gen, validation_gen, model_name, num_frames, h, w, d, no_epochs, steps_per_epoch_travelled, val_steps_per_epoch_travelled, batch_size, \
+                                        embedding_size, nb_classes, my_reason)
+
+    probs,yprobs = compute_probs(network,testing_gen[0][1],testing_gen[1])
+    

@@ -1,19 +1,9 @@
 import os
 import sys
-
-# Setting Paths
-module_path = os.path.abspath(os.path.join('..'))
-project_path = os.path.abspath(os.path.join('../..'))
-
-if module_path not in sys.path:
-    sys.path.append(module_path)
-if project_path not in sys.path:
-    sys.path.append(project_path)
-
-import config
 import numpy as np
 import pandas as pd
 import paths
+import model
 import seaborn as sns; sns.set()
 import matplotlib.pyplot as plt
 import tensorflow as tf
@@ -21,9 +11,6 @@ import time
 from pylab import *
 from sklearn.preprocessing import MinMaxScaler, QuantileTransformer
 from skimage.util.shape import view_as_windows
-
-np.set_printoptions(suppress=True)
-np.set_printoptions(threshold=sys.maxsize)
 
 # Parameters
 num_frames = 500
@@ -74,7 +61,9 @@ def retrieve_cleansed_data(lob, width, filename):
 def convert_data_to_labels(data_source, frames):
     X = None
     Y = None
+    print(data_source)
     for subdir, dirs, files in os.walk(data_source):
+        print(subdir)
         for file in files:
             data_path = os.path.join(subdir, file)
             print(data_path)
@@ -95,33 +84,33 @@ def convert_data_to_labels(data_source, frames):
 
 
 def save_data(data_source, data_dest, datatype):
+    """
+
+    """
     X, Y = convert_data_to_labels(data_source, num_frames)
+    np.save(data_dest + str(num_frames) + datatype + 'X.npy', X)
+    np.save(data_dest + str(num_frames) + datatype + 'Y.npy', Y)
+    print('Written To ' + str(data_dest + str(num_frames)))
 
-    np.save(data_dest + '/' + str(num_frames) + datatype + 'X.npy', X)
-    np.save(data_dest + '/' + str(num_frames) + datatype + 'Y.npy', Y)
-
-    print('Written To ' + str(data_dest + '/' + str(num_frames)))
-
-# To run this you need high memory machine and will run on the compiled data from above
-def save_individual_files(data_source, save_location):
-    X = np.load(data_source + '/500_X.npy')
-    y = np.load(data_source + '/500_Y.npy')
-    {np.save(save_location + 'X/' + str(k) + '.npy', v) for k, v in enumerate(X)}
-    Y_numeric = [config.label_dict[v] for v in y]
-    np.save(save_location + 'Y.npy', Y_numeric)
-  
-
-# Test
-
-# 2016
-#save_data(paths.source_2016, paths.dest_2016, '_')
-
-# 2017
-#save_data(paths.source_2017, paths.dest_2017, '_')
+# To run this you need high memory machine
+def save_individual_files(data_source, save_location, frames):
+    if not os.path.exists(str(save_location) + str(frames) + '_X/'):
+        os.makedirs(str(save_location) + str(frames) + '_X/')
+    X, y = convert_data_to_labels(data_source, frames)
+    {np.save(save_location + str(frames) + '_X/' + str(k) + '.npy', v) for k, v in enumerate(X)}
+    Y_numeric = [model.label_dict[v] for v in y]
+    np.save(save_location + str(frames) + '_Y.npy', Y_numeric)
+    print('Written To ' + str(save_location) + str(frames))
 
 # Test Data
 #save_data(paths.source_test_2017, paths.dest_2017, '_Test2017_')
 
-save_individual_files(paths.dev_dest, paths.dev_dest_generator)
-#save_individual_files(paths.dest_2016, paths.dest_2016_generator)
+#save_individual_files(paths.source_dev, paths.generator_dev, num_frames)
+save_individual_files(paths.source_train_2016, paths.generator_train_2016, num_frames)
+save_individual_files(paths.source_val_2016, paths.generator_val_2016, num_frames)
+save_individual_files(paths.source_test_2016, paths.generator_test_2016, num_frames)
+
+#save_individual_files(paths.source_train_2017, paths.generator_train_2017, num_frames)
+#save_individual_files(paths.source_val_2017, paths.generator_val_2017, num_frames)
+#save_individual_files(paths.source_test_2017, paths.generator_test_2017, num_frames)
 

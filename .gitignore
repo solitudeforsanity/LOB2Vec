@@ -1,6 +1,11 @@
 .DS_Store
 .idea/*
 __pycache__/*
+.ipynb_checkpoints
+.pytest_cache
+.vscode
+/data/*
+/images/*
 /venv/*
 /src/paths.py
 /src/__pycache__/*
