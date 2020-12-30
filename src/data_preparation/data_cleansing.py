@@ -23,7 +23,9 @@ from tensorflow.keras import Input, Model, metrics, backend as K
     # https://stackoverflow.com/questions/47671732/keras-input-a-3-channel-image-into-lstm
     # https://www.kaggle.com/kmader/what-is-convlstm
 
-def retrieve_cleansed_data(lob, y_df, z_df, filename, isnormalised):
+def retrieve_cleansed_data(lob, y_df, z_df, filename, isnormalised, overlapping):
+    """
+    """
     # As evidenced by above, we can technically select all in the second axis as there is only 1 element. However,
     # because we need a 2d input we make it 0. The 3rd axis is side so we need this
 
@@ -56,7 +58,7 @@ def retrieve_cleansed_data(lob, y_df, z_df, filename, isnormalised):
        # lob_price = lob_price.reshape(lob_n, h, w)
 
     # If Time of entry is necessary add lob_ts and make last dimension 3
-    lob_states = np.dstack((lob_price))
+    lob_states = np.dstack((lob_price, lob_qty))
     lob_states = lob_states.reshape(samples, h, w, d)
 
     # We use the num_frames for step count so that the windows are non-overlapping. We can also use view_as_blocks but the issue with this is that it
@@ -70,15 +72,18 @@ def retrieve_cleansed_data(lob, y_df, z_df, filename, isnormalised):
         z_df_shifted = shift(z_df, -1, cval=0)
         y_df_shifted = shift(y_df, shift=[-1,0], cval=0)
 
-        # Use this to get non-overlapping windows. Y value calculation for this not complete
-        lob_states = view_as_windows(lob_states,(timesteps,1,1,1), step=(timesteps,1,1,1))[...,0,0,0].transpose(0,4,1,2,3)
-        y_df_shifted = y_df_shifted[timesteps-1::timesteps]
-        z_df_shifted = z_df_shifted[timesteps-1::timesteps]
+        if overlapping:
+            lob_states = view_as_windows(lob_states,(timesteps,1,1,1))[...,0,0,0].transpose(0,4,1,2,3)
+            y_df_shifted = y_df_shifted[timesteps-1:len(y_df_shifted)]
+            z_df_shifted = z_df_shifted[timesteps-1:len(z_df_shifted)]
+        else:
+            lob_states = view_as_windows(lob_states,(timesteps,1,1,1), step=(timesteps,1,1,1))[...,0,0,0].transpose(0,4,1,2,3)
+            # lob_price = view_as_windows(lob_price,(timesteps,1,1,1), step=(timesteps,1,1,1))[...,0,0,0].transpose(0,4,1,2,3)
+            # lob_qty = view_as_windows(lob_qty,(timesteps,1,1,1), step=(timesteps,1,1,1))[...,0,0,0].transpose(0,4,1,2,3)
+            y_df_shifted = y_df_shifted[timesteps-1::timesteps]
+            z_df_shifted = z_df_shifted[timesteps-1::timesteps]
 
-        # Use this for overlapping windows. Y value calculation also complete
-        #lob_states = view_as_windows(lob_states,(width,1,1,1))[...,0,0,0].transpose(0,4,1,2,3)
-        #y_df_shifted = y_df_shifted[num_frames-1:len(y_df_shifted)]
-        return lob_states, y_df_shifted, z_df_shifted
+        return lob_states, lob_price, lob_qty, y_df_shifted, z_df_shifted
 
 # define dataset
 def convert_data_to_labels(stock_name, data_source):
@@ -88,6 +93,8 @@ def convert_data_to_labels(stock_name, data_source):
     data_souce : souce path of the data
     """
     X = None
+    P = None
+    Q = None
     Y = None
     Z = None
 
@@ -104,12 +111,24 @@ def convert_data_to_labels(stock_name, data_source):
                 npy_x = np.load(x_path, allow_pickle=True)
                 npy_z = np.load(z_path, allow_pickle=True)
 
-                x, y, z = retrieve_cleansed_data(npy_x, npy_y, npy_z, file, True)
+                x, p, q, y, z = retrieve_cleansed_data(npy_x, npy_y, npy_z, file, True, True)
                 if len(x) > 0:
                     if X is not None:
                         X = np.append(X, x, axis=0)
                     else:
                         X = x
+
+                if len(p) > 0:
+                    if P is not None:
+                        P = np.append(P, p, axis=0)
+                    else:
+                        P = p
+
+                if len(q) > 0:
+                    if Q is not None:
+                        Q = np.append(Q, q, axis=0)
+                    else:
+                        Q = q
 
                 if len(y) > 0:
                     if Y is not None:
@@ -123,3 +142,34 @@ def convert_data_to_labels(stock_name, data_source):
                     else:
                         Z = z
     return X, Y, Z
+
+# define dataset
+def convert_data_to_labels_days(stock_name, data_source):
+    def gen():
+        """
+        Generates time series data for a given stock for all days inside the folder
+        stock_name : Name of the stock we want to generate TS for
+        data_souce : souce path of the data
+        """
+        X = None
+        P = None
+        Q = None
+        Y = None
+        Z = None
+
+        for subdir, dirs, files in os.walk(data_source):
+            for file in files:
+                data_path = os.path.join(subdir, file)
+                my_path = Path(data_path)
+                date_path = my_path.parent.parent
+                x_path = date_path / 'X' / file
+                z_path = date_path / 'Z' / file
+                XorY = basename(my_path.parent)
+                if XorY == 'Y' and file == stock_name:
+                    npy_y = np.load(data_path, allow_pickle=True)
+                    npy_x = np.load(x_path, allow_pickle=True)
+                    npy_z = np.load(z_path, allow_pickle=True)
+
+                    x, p, q, y, z = retrieve_cleansed_data(npy_x, npy_y, npy_z, file, True, True)
+                    yield x, y, z
+    return gen

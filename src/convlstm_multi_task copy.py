@@ -38,7 +38,8 @@ def multi_task_model(input_shape, nb_classes, network, include_top=False, poolin
     # Define model layers.
     input = Input(shape=input_shape, name='input')
     encoded = network(input)
-    y1 = Dense(1, activation='sigmoid', bias_initializer=model.initialize_bias, name='side')(encoded)
+    y1 = Dense(30, activation=tf.keras.activations.swish, bias_initializer=model.initialize_bias, name='side_1')(encoded)
+    y1 = Dense(1, activation='sigmoid', bias_initializer=model.initialize_bias, name='side')(y1)
 
     y2 = Dense(nb_classes, activation='softmax', bias_initializer=model.initialize_bias, name='action')(encoded)
 
@@ -97,7 +98,7 @@ def model_fit(tcn_model, training_gen, validation_gen, model_name, steps_per_epo
     return tcn_model
 
 if __name__ == "__main__":
-    my_reason = 1
+    my_reason = 0
     gen_type = 1
     tcn_model = train_model_base(my_reason)
 
@@ -124,7 +125,7 @@ if __name__ == "__main__":
         print('pred shape')
         print(predicted_class.shape)
         print(predicted_class)
-        true_class = y_labels
+        true_class = tf.argmax(y_labels, axis=1)
         print('True Shape')
         print(true_class.shape)
         print(true_class)

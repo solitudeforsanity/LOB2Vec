@@ -17,7 +17,7 @@ from loss_and_metrics import CategoricalTruePositives, TripletLossLayer, Quadrup
 from tcn import TCN, tcn_full_summary
 from tensorflow.keras import Input, Model, metrics, backend as K
 from tensorflow.keras.callbacks import CSVLogger, TensorBoard
-from tensorflow.keras.layers import Dense, Conv2D, Layer, Lambda, Flatten, BatchNormalization
+from tensorflow.keras.layers import Dense, Conv2D, Layer, Lambda, Flatten, BatchNormalization, Dropout
 from tensorflow.keras.models import load_model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.regularizers import l2
@@ -38,7 +38,8 @@ def multi_task_model(input_shape, nb_classes, network, include_top=False, poolin
     # Define model layers.
     input = Input(shape=input_shape, name='input')
     encoded = network(input)
-    y1 = Dense(1, activation='sigmoid', bias_initializer=model.initialize_bias, name='side')(encoded)
+    y1 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='side_1')(encoded)
+    y1 = Dense(1, activation='sigmoid', bias_initializer=model.initialize_bias, name='side')(y1)
 
     y2 = Dense(nb_classes, activation='softmax', bias_initializer=model.initialize_bias, name='action')(encoded)
 
@@ -48,13 +49,13 @@ def multi_task_model(input_shape, nb_classes, network, include_top=False, poolin
     # Define the model with the input layer
     # and a list of output layers
     output = Model(inputs=[input], outputs=[y1, y2, y3, y4])
-    plot_model(output, paths.model_images + '/_convlstm_multi_.png', show_shapes=True)
+    plot_model(output, paths.model_images + '/_convlstm_multi_e2e.png', show_shapes=True)
     return output
 
 def train_model_base(reason):
     build_representation = model.convlstm_network()
     tcn_model = multi_task_model(input_shape=(config.num_frames, config.h, config.w, config.d), network=build_representation, nb_classes=config.nb_mt_classes)
-    optimizer = Adam(lr = 0.000001)
+    optimizer = Adam(lr = 0.00001)
 
     losses = {
 	"side": "binary_crossentropy",
@@ -83,7 +84,7 @@ def model_fit(tcn_model, training_gen, validation_gen, model_name, steps_per_epo
     logdir = paths.logs_save + model_name + str(reason) + '_convlstm_multi_' + str(config.embedding_size)
     tensorboard_callback = TensorBoard(log_dir=logdir)
 
-    trained_history = tcn_model.fit(x=training_gen, y=None, batch_size=config.batch_size, epochs=config.no_epochs, verbose=1, callbacks=None,
+    trained_history = tcn_model.fit(x=training_gen, y=None, batch_size=config.batch_size, epochs=config.no_epochs, verbose=1, callbacks=[tensorboard_callback],
                                    validation_split=0.0, validation_data=validation_gen, shuffle=True, class_weight=None,
                                    sample_weight=None, initial_epoch=0, steps_per_epoch=steps_per_epoch_travelled*0.9, validation_steps=val_steps_per_epoch_travelled*0.9,
                                    validation_batch_size=config.batch_size, validation_freq=1, max_queue_size=10, workers=1, use_multiprocessing=False)
@@ -97,7 +98,7 @@ def model_fit(tcn_model, training_gen, validation_gen, model_name, steps_per_epo
     return tcn_model
 
 if __name__ == "__main__":
-    my_reason = 1
+    my_reason = 0
     gen_type = 1
     tcn_model = train_model_base(my_reason)
 
@@ -116,7 +117,7 @@ if __name__ == "__main__":
         print(predicted_class)
         print('Now Y Labels')
         y_labels = np.empty((0, 2))
-        print(testing_gen.__getitem__(0)[1])
+        print(testing_gen.__getitem__(0)[1]['side'])
         for i in range(0, testing_gen.__len__()):
             y_labels = np.append(y_labels, testing_gen.__getitem__(i)[1]['side'], axis=0)
 
@@ -124,12 +125,12 @@ if __name__ == "__main__":
         print('pred shape')
         print(predicted_class.shape)
         print(predicted_class)
-        true_class = y_labels
+        true_class = tf.argmax(y_labels, axis=1)
         print('True Shape')
         print(true_class.shape)
         print(true_class)
 
-        cnf_matrix = confusion_matrix(true_class, predicted_class, labels=list(range(0,22)))
+        cnf_matrix = confusion_matrix(true_class, predicted_class, labels=list(range(0,2)))
         print(cnf_matrix.shape)
         evaluation.plot_confusion_matrix(cnf_matrix, config.nb_st_classes, model_name + str(config.num_frames) + '_convlstm_multi_' + stock[:-11])  # doctest: +SKIP
 
