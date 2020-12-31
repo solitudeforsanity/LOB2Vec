@@ -34,18 +34,18 @@ def model_base(input_shape, nb_classes, network, include_top=False, pooling=None
     output = Model(inputs=[input],outputs=[y1])
     return output
 
-def multi_task_model(input_shape, nb_classes, network, include_top=False, pooling=None):
+def multi_task_model(input_shape, network, include_top=False, pooling=None):
     # Define model layers.
     input = Input(shape=input_shape, name='input')
     encoded = network(input)
     y1 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='side_1')(encoded)
-    y1 = Dense(1, activation='sigmoid', bias_initializer=model.initialize_bias, name='side')(y1)
+    y1 = Dense(2, activation='softmax', bias_initializer=model.initialize_bias, name='side')(y1)
 
-    y2 = Dense(nb_classes, activation='softmax', bias_initializer=model.initialize_bias, name='action')(encoded)
+    y2 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='action')(encoded)
 
-    y3 = Dense(nb_classes, activation='softmax', bias_initializer=model.initialize_bias, name='price_level')(encoded)
+    y3 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='price_level')(encoded)
 
-    y4 = Dense(nb_classes, activation='softmax', bias_initializer=model.initialize_bias, name='liquidity')(encoded)
+    y4 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='liquidity')(encoded)
     # Define the model with the input layer
     # and a list of output layers
     output = Model(inputs=[input], outputs=[y1, y2, y3, y4])
@@ -54,21 +54,21 @@ def multi_task_model(input_shape, nb_classes, network, include_top=False, poolin
 
 def train_model_base(reason):
     build_representation = model.convlstm_network()
-    tcn_model = multi_task_model(input_shape=(config.num_frames, config.h, config.w, config.d), network=build_representation, nb_classes=config.nb_mt_classes)
-    optimizer = Adam(lr = 0.00001)
+    tcn_model = multi_task_model(input_shape=(config.num_frames, config.h, config.w, config.d), network=build_representation)
+    optimizer = Adam(lr = 0.0001)
 
     losses = {
 	"side": "binary_crossentropy",
-	"action": "categorical_crossentropy",
-    "price_level": "categorical_crossentropy",
-    "liquidity": "categorical_crossentropy"
+	"action": "sparse_categorical_crossentropy",
+    "price_level": tf.keras.losses.SparseCategoricalCrossentropy(),
+    "liquidity": "sparse_categorical_crossentropy"
     }
 
     acc = {
-	"side": "binary_accuracy",
-	"action": "categorical_accuracy",
-    "price_level": "categorical_accuracy",
-    "liquidity": "categorical_accuracy"
+	"side": "categorical_accuracy",
+	"action": "sparse_categorical_accuracy",
+    "price_level": "sparse_categorical_accuracy",
+    "liquidity": "sparse_categorical_accuracy"
     }
     tcn_model.compile(loss=losses, optimizer=optimizer, metrics=acc)
     build_representation.summary()
@@ -78,13 +78,17 @@ def train_model_base(reason):
     #build_representation.save(paths.model_save + str(reason) + '_TCN_CC_Representation' +  str(config.embedding_size))
     return tcn_model
 
+def lr_scheduler(epoch, lr):
+    return lr * tf.math.exp(-0.1)
+
 def model_fit(tcn_model, training_gen, validation_gen, model_name, steps_per_epoch_travelled, val_steps_per_epoch_travelled, reason, stock):
     early_stopper = tf.keras.callbacks.EarlyStopping(monitor='acc', patience=3)
     csv_logger = CSVLogger(paths.logs_save + model_name + str(reason) + '_convlstm_multi_' + str(config.embedding_size), append=True, separator=';')
     logdir = paths.logs_save + model_name + str(reason) + '_convlstm_multi_' + str(config.embedding_size)
     tensorboard_callback = TensorBoard(log_dir=logdir)
+    lr_decay = tf.keras.callbacks.LearningRateScheduler(lr_scheduler)
 
-    trained_history = tcn_model.fit(x=training_gen, y=None, batch_size=config.batch_size, epochs=config.no_epochs, verbose=1, callbacks=[tensorboard_callback],
+    trained_history = tcn_model.fit(x=training_gen, y=None, batch_size=config.batch_size, epochs=config.no_epochs, verbose=1, callbacks=[tensorboard_callback, lr_decay],
                                    validation_split=0.0, validation_data=validation_gen, shuffle=True, class_weight=None,
                                    sample_weight=None, initial_epoch=0, steps_per_epoch=steps_per_epoch_travelled*0.9, validation_steps=val_steps_per_epoch_travelled*0.9,
                                    validation_batch_size=config.batch_size, validation_freq=1, max_queue_size=10, workers=1, use_multiprocessing=False)
@@ -103,35 +107,8 @@ if __name__ == "__main__":
     tcn_model = train_model_base(my_reason)
 
     for stock in config.stock_list:
-        training_gen, validation_gen, testing_gen, model_name, steps_per_epoch_travelled, val_steps_per_epoch_travelled, \
-                                                                    = model.return_parameters(stock, my_reason, gen_type)
-        tcn_model = model_fit(tcn_model, training_gen, validation_gen, model_name, steps_per_epoch_travelled, val_steps_per_epoch_travelled, my_reason, stock[:-11])
-
-       # loss, acc, cp = tcn_model.evaluate(training_gen, verbose=2)
-       # print('Restored model, accuracy: {:5.2f}%'.format(100*acc))
-        pred1, pred2, pred3, pred4 = tcn_model.predict(testing_gen, steps=testing_gen.__len__())
-
-        # To convert from one-hot to class labels
-        print(pred1)
-        predicted_class = tf.argmax(pred1, axis=1)
-        print(predicted_class)
-        print('Now Y Labels')
-        y_labels = np.empty((0, 2))
-        print(testing_gen.__getitem__(0)[1]['side'])
-        for i in range(0, testing_gen.__len__()):
-            y_labels = np.append(y_labels, testing_gen.__getitem__(i)[1]['side'], axis=0)
-
-        print(y_labels.shape)
-        print('pred shape')
-        print(predicted_class.shape)
-        print(predicted_class)
-        true_class = tf.argmax(y_labels, axis=1)
-        print('True Shape')
-        print(true_class.shape)
-        print(true_class)
-
-        cnf_matrix = confusion_matrix(true_class, predicted_class, labels=list(range(0,2)))
-        print(cnf_matrix.shape)
-        evaluation.plot_confusion_matrix(cnf_matrix, config.nb_st_classes, model_name + str(config.num_frames) + '_convlstm_multi_' + stock[:-11])  # doctest: +SKIP
-
-
+        if stock == 'USM_NASDAQ.npy':
+            training_gen, validation_gen, testing_gen, model_name, steps_per_epoch_travelled, val_steps_per_epoch_travelled, \
+                                                                        = model.return_parameters(stock, my_reason, gen_type)
+            tcn_model = model_fit(tcn_model, training_gen, validation_gen, model_name, steps_per_epoch_travelled, val_steps_per_epoch_travelled, my_reason, stock[:-11])
+            evaluation.generate_metrics(tcn_model, testing_gen, True, stock, model_name)

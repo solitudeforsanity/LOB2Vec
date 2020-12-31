@@ -2,9 +2,9 @@
 embedding_size = 120
 batch_size = 80
 no_epochs = 2
-num_frames = 50
+num_frames = 10
 nb_st_classes = 21
-nb_mt_classes = 39
+nb_mt_classes = 41
 h = 30
 w = 2
 d = 2

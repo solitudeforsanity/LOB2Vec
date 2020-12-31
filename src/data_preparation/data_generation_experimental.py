@@ -69,6 +69,24 @@ class DataGenerator(Sequence):
             y_batch[idx_arr] = self.Y_values[idx]
         return np.stack(x_batch, 0), {"side": K.one_hot(y_batch[:,0], 2), "action": K.one_hot(y_batch[:,1], self.n_classes), "price_level": K.one_hot(y_batch[:,2], self.n_classes), "liquidity": K.one_hot(y_batch[:,3], self.n_classes)}
 
+     def gen_multi_task_yeild(self, index):
+        x_batch = np.zeros((self.batch_size, self.dim[0], self.dim[1], self.dim[2], self.dim[3]))
+        y_batch = np.zeros((self.batch_size, len(self.Y_values[0])))
+        train_path = paths.source_train_dev
+        train_ = dc.convert_data_to_labels_days('USM_NASDAQ.npy', train_path)
+        dataset = tf.data.Dataset.from_generator(train_, output_types = (tf.float32, tf.float32, tf.float32))
+
+        for data, labels, newlabels in dataset:
+            print(data.shape)
+            print(labels)
+            print(newlabels)
+
+
+        for idx_arr, idx  in enumerate(index):
+            x_batch[idx_arr] = self.X_values[idx]
+            y_batch[idx_arr] = self.Y_values[idx]
+        return np.stack(x_batch, 0), {"side": K.one_hot(y_batch[:,0], 2), "action": K.one_hot(y_batch[:,1], self.n_classes), "price_level": K.one_hot(y_batch[:,2], self.n_classes), "liquidity": K.one_hot(y_batch[:,3], self.n_classes)}
+
 
     def __get_triplet(self):
         triplets = [np.zeros((config.batch_size, self.dim[0], self.dim[1], self.dim[2], self.dim[3])) for i in range(3)]
@@ -156,12 +174,10 @@ def tests():
     print(right_labels.shape)
     print(right_labels)
 
-train_path = paths.source_train_dev
 train_ = dc.convert_data_to_labels_days('USM_NASDAQ.npy', train_path)
 dataset = tf.data.Dataset.from_generator(train_, output_types = (tf.float32, tf.float32, tf.float32))
 
-for data, labels, newlabels in dataset.take(7):
+for data, labels, newlabels in dataset:
     print(data.shape)
     print(labels)
     print(newlabels)
-

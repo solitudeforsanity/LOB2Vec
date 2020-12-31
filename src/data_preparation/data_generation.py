@@ -67,7 +67,15 @@ class DataGenerator(Sequence):
         for idx_arr, idx  in enumerate(index):
             x_batch[idx_arr] = self.X_values[idx]
             y_batch[idx_arr] = self.Y_values[idx]
-        return np.stack(x_batch, 0), {"side": K.one_hot(y_batch[:,0], 2), "action": K.one_hot(y_batch[:,1], 11), "price_level": K.one_hot(y_batch[:,2], self.n_classes), "liquidity": K.one_hot(y_batch[:,3], self.n_classes)}
+        return np.stack(x_batch, 0), {"side": y_batch[:,0].astype(int), "action": y_batch[:,1].astype(int), "price_level": y_batch[:,2].astype(int), "liquidity": y_batch[:,3].astype(int)}
+
+    def old__gen_multi_task(self, index):
+        x_batch = np.zeros((self.batch_size, self.dim[0], self.dim[1], self.dim[2], self.dim[3]))
+        y_batch = np.zeros((self.batch_size, len(self.Y_values[0])))
+        for idx_arr, idx  in enumerate(index):
+            x_batch[idx_arr] = self.X_values[idx]
+            y_batch[idx_arr] = self.Y_values[idx]
+        return np.stack(x_batch, 0), {"side": K.one_hot(y_batch[:,0], config.side_class_size), "action": K.one_hot(y_batch[:,1], config.action_class_size), "price_level": K.one_hot(y_batch[:,2], config.price_level_class_size), "liquidity": K.one_hot(y_batch[:,3], 39)}
 
 
     def __get_triplet(self):
@@ -110,6 +118,12 @@ def get_generator_data(stock, reason, gen_type):
     X_train, Y_train, Z_train = dc.convert_data_to_labels(stock, train_path)
     X_test, Y_test, Z_test = dc.convert_data_to_labels(stock, test_path)
     X_val, Y_val, Z_val = dc.convert_data_to_labels(stock, val_path)
+
+    print(Y_train[:,0])
+
+    #np.savetxt('Y_train_one_hot.csv', K.one_hot(Y_train, 39), delimiter=',')
+    
+    #np.savetxt('Y_train.csv', Y_train, delimiter=',')
  
     """
     result1 = np.where(Z_train == 1)
@@ -126,17 +140,29 @@ def get_generator_data(stock, reason, gen_type):
         training_generator = DataGenerator(Z_train, X_train, gen_type, config.nb_st_classes)
         test_generator = DataGenerator(Z_test, X_test, gen_type, config.nb_st_classes)
     elif gen_type == 1:
-        validation_generator = DataGenerator(Y_val, X_val, gen_type, config.nb_mt_classes)
-        training_generator = DataGenerator(Y_train, X_train, gen_type, config.nb_mt_classes)
-        test_generator = DataGenerator(Y_test, X_test, gen_type, config.nb_mt_classes)
-    #print(Y_test)
-    # ,  
+        validation_generator = DataGenerator(Y_val, X_val, gen_type, 39)
+        training_generator = DataGenerator(Y_train, X_train, gen_type, 39)
+        test_generator = DataGenerator(Y_test, X_test, gen_type, 39)
+      
     return training_generator, validation_generator, test_generator, model_name, len(X_train), len(X_val)
 
 def tests():
     import numpy as np
     testg, m, x, t, h, hh = get_generator_data('USM_NASDAQ.npy', 0, 1) 
-    print(testg.__getitem__(0)[1]['side'])
+   # print(testg.__getitem__(4)[0])
+    tfliquidity = np.array(testg.__getitem__(0)[1]['liquidity'])
+    tfside = np.array(testg.__getitem__(0)[1]['side'])
+    tfprice_level = np.array(testg.__getitem__(0)[1]['price_level'])
+    tfaction = np.array(testg.__getitem__(0)[1]['action'])
+    print('My liqdui')
+    print(tfliquidity)
+    np.savetxt('tfliquidity.csv', tfliquidity, delimiter=',')
+    np.savetxt('tfside.csv', tfside, delimiter=',')
+    np.savetxt('tfprice_level.csv', tfprice_level, delimiter=',')
+    np.savetxt('tfaction.csv', tfaction, delimiter=',')
+
+    y_labels = testg.__getitem__(0)[1]['liquidity']
+    #print(tf.argmax(y_labels, axis=1))
     #print(np.array(testg.__getitem__(0)[0]).shape)
    # print(testg.__getitem__(0)[1])
     #np.savetxt("test.csv", np.array(testg.__getitem__(0)[1]), delimiter=",")
@@ -155,6 +181,10 @@ def tests():
     print(wrong_labels.shape)
     print(right_labels.shape)
     print(right_labels)
+
+    from sklearn.preprocessing import OneHotEncoder
+
+    
 
 #tests()
 
