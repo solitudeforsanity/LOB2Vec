@@ -111,7 +111,7 @@ def convert_data_to_labels(stock_name, data_source):
                 npy_x = np.load(x_path, allow_pickle=True)
                 npy_z = np.load(z_path, allow_pickle=True)
 
-                x, p, q, y, z = retrieve_cleansed_data(npy_x, npy_y, npy_z, file, True, True)
+                x, p, q, y, z = retrieve_cleansed_data(npy_x, npy_y, npy_z, file, True, False)
                 if len(x) > 0:
                     if X is not None:
                         X = np.append(X, x, axis=0)

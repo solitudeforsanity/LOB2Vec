@@ -50,8 +50,8 @@ def multi_loss(History, epoch, name):
 
 def multi_acc(History, epoch, name):
     plt.figure(figsize=(20,10))
-    sns.lineplot(range(1, epoch+1), History.history['side_categorical_accuracy'], label='Train Side Accuracy')
-    sns.lineplot(range(1, epoch+1), History.history['val_side_categorical_accuracy'], label='Validation Side Accuracy')
+    sns.lineplot(range(1, epoch+1), History.history['side_sparse_categorical_accuracy'], label='Train Side Accuracy')
+    sns.lineplot(range(1, epoch+1), History.history['val_side_sparse_categorical_accuracy'], label='Validation Side Accuracy')
     sns.lineplot(range(1, epoch+1), History.history['action_sparse_categorical_accuracy'], label='Train Action Accuracy')
     sns.lineplot(range(1, epoch+1), History.history['val_action_sparse_categorical_accuracy'], label='Validation Action Accuracy')
     sns.lineplot(range(1, epoch+1), History.history['price_level_sparse_categorical_accuracy'], label='Train Price Level Accuracy')
@@ -70,21 +70,28 @@ def generate_metrics(tf_model, testing_gen, multi_task, stock, model_name):
         loss, side_loss, action_loss, price_level_loss, liquidity_loss, side_binary_accuracy, action_categorical_accuracy, price_level_categorical_accuracy, liquidity_categorical_accuracy = tf_model.evaluate(testing_gen, verbose=2)
         print('Side Loss')
         print(side_binary_accuracy)
-        create_confusion_matrix(side, 'side', testing_gen, config.nb_mt_classes, stock, model_name)
-        create_confusion_matrix(action, 'action', testing_gen, config.nb_mt_classes, stock, model_name)
-        create_confusion_matrix(price_level, 'price_level', testing_gen, config.nb_mt_classes, stock, model_name)
-        create_confusion_matrix(liquidity, 'liquidity', testing_gen, config.nb_mt_classes, stock, model_name)
+        print(action_categorical_accuracy)
+        create_confusion_matrix(side, 'side', testing_gen, config.nb_mt_classes, config.start_side, config.end_side, stock, model_name)
+        create_confusion_matrix(action, 'action', testing_gen, config.nb_mt_classes, config.start_action, config.end_action, stock, model_name)
+        create_confusion_matrix(price_level, 'price_level', testing_gen, config.nb_mt_classes, config.start_price_level, config.end_price_level, stock, model_name)
+        create_confusion_matrix(liquidity, 'liquidity', testing_gen, config.nb_mt_classes, config.start_liquidity, config.end_liquidity, stock, model_name)
 
-def create_confusion_matrix(feature, feature_name, testing_gen, label_size, stock, model_name):
+def create_confusion_matrix(feature, feature_name, testing_gen, label_size, start_idx, end_idx, stock, model_name):
         predicted_class = tf.argmax(feature, axis=1)
-        y_labels = np.empty((label_size))
+        y_labels = np.empty((0))
         for i in range(0, testing_gen.__len__()):
             y_labels = np.append(y_labels, testing_gen.__getitem__(i)[1][feature_name], axis=0)
-
-        true_class = tf.argmax(y_labels, axis=1)
+        print(feature_name)
+        print(feature)
+        print(predicted_class)
+        print(y_labels)
+        print(feature.shape)
+        print(predicted_class.shape)
+        print(y_labels.shape)
+        #true_class = tf.argmax(y_labels, axis=1)
        
-        cnf_matrix = confusion_matrix(true_class, predicted_class, labels=list(range(0,label_size)))
-        plot_confusion_matrix(cnf_matrix, label_size, model_name + str(config.num_frames) + '_convlstm_multi_' + feature_name + '_' + stock[:-11])
+        cnf_matrix = confusion_matrix(y_labels, predicted_class, labels=list(range(start_idx, end_idx)))
+        plot_confusion_matrix(cnf_matrix, list(range(start_idx, end_idx)), model_name + str(config.num_frames) + '_convlstm_multi_' + feature_name + '_' + stock[:-11])
 
 #Evaluation of Model - Confusion Matrix Plot
 def plot_confusion_matrix(cm, classes, name,
@@ -106,9 +113,11 @@ def plot_confusion_matrix(cm, classes, name,
     plt.imshow(cm, interpolation='nearest', cmap=cmap)
     plt.title(title)
     plt.colorbar()
-    tick_marks = np.arange(classes)
-    plt.xticks(tick_marks, tick_marks, rotation=45)
-    plt.yticks(tick_marks, tick_marks)
+    print(np.arange(3))
+    print(classes)
+    tick_marks = classes
+    plt.xticks(len(classes), tick_marks, rotation=45)
+    plt.yticks(len(classes), tick_marks)
 
     fmt = '.2f' if normalize else '.2f'
     thresh = cm.max() / 2.

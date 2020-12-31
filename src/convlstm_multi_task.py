@@ -39,7 +39,7 @@ def multi_task_model(input_shape, network, include_top=False, pooling=None):
     input = Input(shape=input_shape, name='input')
     encoded = network(input)
     y1 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='side_1')(encoded)
-    y1 = Dense(2, activation='softmax', bias_initializer=model.initialize_bias, name='side')(y1)
+    y1 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='side')(y1)
 
     y2 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='action')(encoded)
 
@@ -58,14 +58,14 @@ def train_model_base(reason):
     optimizer = Adam(lr = 0.0001)
 
     losses = {
-	"side": "binary_crossentropy",
+	"side": "sparse_categorical_crossentropy",
 	"action": "sparse_categorical_crossentropy",
-    "price_level": tf.keras.losses.SparseCategoricalCrossentropy(),
+    "price_level": 'sparse_categorical_crossentropy',
     "liquidity": "sparse_categorical_crossentropy"
     }
 
     acc = {
-	"side": "categorical_accuracy",
+	"side": "sparse_categorical_accuracy",
 	"action": "sparse_categorical_accuracy",
     "price_level": "sparse_categorical_accuracy",
     "liquidity": "sparse_categorical_accuracy"

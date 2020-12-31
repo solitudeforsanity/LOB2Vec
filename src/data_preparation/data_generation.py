@@ -119,8 +119,6 @@ def get_generator_data(stock, reason, gen_type):
     X_test, Y_test, Z_test = dc.convert_data_to_labels(stock, test_path)
     X_val, Y_val, Z_val = dc.convert_data_to_labels(stock, val_path)
 
-    print(Y_train[:,0])
-
     #np.savetxt('Y_train_one_hot.csv', K.one_hot(Y_train, 39), delimiter=',')
     
     #np.savetxt('Y_train.csv', Y_train, delimiter=',')
