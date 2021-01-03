@@ -61,31 +61,39 @@ class DataGenerator(Sequence):
         return np.stack(x_batch, 0), K.one_hot(y_batch, self.n_classes)
 
 
+    def old__gen_multi_task(self, index):
+        x_batch = np.zeros((self.batch_size, self.dim[0], self.dim[1], self.dim[2], self.dim[3]))
+        y_batch = np.zeros((self.batch_size, len(self.Y_values[0])))
+        for idx_arr, idx  in enumerate(index):
+            x_batch[idx_arr] = self.X_values[idx]
+            y_batch[idx_arr] = self.Y_values[idx]
+        return np.stack(x_batch, 0), {"side": K.one_hot(y_batch[:,0], 2), "action": K.one_hot(y_batch[:,1], self.n_classes), "price_level": K.one_hot(y_batch[:,2], self.n_classes), "liquidity": K.one_hot(y_batch[:,3], self.n_classes)}
+
     def __gen_multi_task(self, index):
         x_batch = np.zeros((self.batch_size, self.dim[0], self.dim[1], self.dim[2], self.dim[3]))
         y_batch = np.zeros((self.batch_size, len(self.Y_values[0])))
-        for idx_arr, idx  in enumerate(index):
-            x_batch[idx_arr] = self.X_values[idx]
-            y_batch[idx_arr] = self.Y_values[idx]
-        return np.stack(x_batch, 0), {"side": K.one_hot(y_batch[:,0], 2), "action": K.one_hot(y_batch[:,1], self.n_classes), "price_level": K.one_hot(y_batch[:,2], self.n_classes), "liquidity": K.one_hot(y_batch[:,3], self.n_classes)}
+        walk_path = paths.source_train_dev
+        for subdir, dirs, files in os.walk(walk_path):
+            for file in files:
+                if file == 'USM_NASDAQ.npy':
+                    data_path = os.path.join(subdir, file)
+                    train_ = dc.convert_data_to_labels_days(file, train_path)
+                    dataset = tf.data.Dataset.from_generator(train_, args = [data_path, file, index, self.batch_size], output_types = (tf.float32, tf.float32, tf.float32))
 
-     def gen_multi_task_yeild(self, index):
+                    for data, labels, newlabels in dataset:
+                        print(data.shape)
+                        print(labels)
+                        print(newlabels)
+
+        return np.stack(x_batch, 0), {"side": y_batch[:,0].astype(int), "action": y_batch[:,1].astype(int), "price_level": y_batch[:,2].astype(int), "liquidity": y_batch[:,3].astype(int)}
+
+    def new__gen_multi_task(self, index):
         x_batch = np.zeros((self.batch_size, self.dim[0], self.dim[1], self.dim[2], self.dim[3]))
         y_batch = np.zeros((self.batch_size, len(self.Y_values[0])))
-        train_path = paths.source_train_dev
-        train_ = dc.convert_data_to_labels_days('USM_NASDAQ.npy', train_path)
-        dataset = tf.data.Dataset.from_generator(train_, output_types = (tf.float32, tf.float32, tf.float32))
-
-        for data, labels, newlabels in dataset:
-            print(data.shape)
-            print(labels)
-            print(newlabels)
-
-
         for idx_arr, idx  in enumerate(index):
             x_batch[idx_arr] = self.X_values[idx]
             y_batch[idx_arr] = self.Y_values[idx]
-        return np.stack(x_batch, 0), {"side": K.one_hot(y_batch[:,0], 2), "action": K.one_hot(y_batch[:,1], self.n_classes), "price_level": K.one_hot(y_batch[:,2], self.n_classes), "liquidity": K.one_hot(y_batch[:,3], self.n_classes)}
+        return np.stack(x_batch, 0), {"side": y_batch[:,0].astype(int), "action": y_batch[:,1].astype(int), "price_level": y_batch[:,2].astype(int), "liquidity": y_batch[:,3].astype(int)}
 
 
     def __get_triplet(self):
@@ -125,8 +133,8 @@ def get_generator_data(stock, reason, gen_type):
         test_path = paths.source_test
         model_name = 'Main_'
 
-    X_train, Y_train, Z_train = dc.convert_data_to_labels_days(stock, train_path)
-    X_test, Y_test, Z_test = dc.convert_data_to_labels_days(stock, test_path)
+    X_train, Y_train, Z_train = dc.convert_data_to_labels(stock, train_path)
+    X_test, Y_test, Z_test = dc.convert_data_to_labels(stock, test_path)
     X_val, Y_val, Z_val = dc.convert_data_to_labels(stock, val_path)
  
     """
@@ -160,24 +168,6 @@ def tests():
     #np.savetxt("test.csv", np.array(testg.__getitem__(0)[1]), delimiter=",")
     print('HI N--------------------------------')
 
-    def change_to_right(wrong_labels):
-        right_labels=[]
-        for x in wrong_labels:
-            for i in range(0,len(wrong_labels[0])):
-                if x[i]==1:
-                    right_labels.append(i+1)
-        return right_labels
 
-    wrong_labels = np.array([[0,0,1,0], [0,0,1,0], [1,0,0,0],[0,1,0,0]])
-    right_labels = tf.convert_to_tensor(np.array(change_to_right(wrong_labels)))
-    print(wrong_labels.shape)
-    print(right_labels.shape)
-    print(right_labels)
+tests()
 
-train_ = dc.convert_data_to_labels_days('USM_NASDAQ.npy', train_path)
-dataset = tf.data.Dataset.from_generator(train_, output_types = (tf.float32, tf.float32, tf.float32))
-
-for data, labels, newlabels in dataset:
-    print(data.shape)
-    print(labels)
-    print(newlabels)

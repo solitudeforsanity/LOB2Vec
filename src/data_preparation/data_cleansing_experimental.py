@@ -1,9 +1,12 @@
 import sys
+import os
+module_path = os.path.abspath(os.path.join('..'))
+project_path = os.path.abspath(os.path.join('../..'))
 sys.path.append(".")
 
-import config
+import src.config as config
 import os
-import paths
+import src.paths as path
 import numpy as np
 import tensorflow as tf
 
@@ -12,11 +15,12 @@ from pathlib import Path
 from tensorflow.keras.preprocessing.sequence import TimeseriesGenerator
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Dense, LSTM
-from sklearn.preprocessing import MinMaxScaler, QuantileTransformer
+from sklearn.preprocessing import MinMaxScaler, QuantileTransformer, RobustScaler
 from skimage.util.shape import view_as_windows
 from scipy.ndimage.interpolation import shift
 from tensorflow.keras import Input, Model, metrics, backend as K
 
+robust_scaler = RobustScaler()
 min_max_scaler = MinMaxScaler(feature_range=(0,1))
 
 # Use the below for multiple time series
@@ -79,6 +83,7 @@ def retrieve_cleansed_data(lob, y_df, z_df, filename, isnormalised, overlapping,
     y_mid = mid.reshape(-1, 1)
     y_df = np.append(y_df, y_spread, axis=1)
     y_df = np.append(y_df, y_mid, axis=1)
+    print(y_df.shape)
     
     spread = spread[...,np.newaxis]
     mid = mid[...,np.newaxis]
@@ -111,7 +116,7 @@ def retrieve_cleansed_data(lob, y_df, z_df, filename, isnormalised, overlapping,
 
             y_df_shifted = y_df_shifted[timesteps-1::timesteps]
             z_df_shifted = z_df_shifted[timesteps-1::timesteps]
-        return lob_states, lob_price, lob_qty, y_df_shifted, z_df_shifted, spread, mid, robust_scaler
+        return lob_states, lob_price, lob_qty, y_df_shifted, z_df_shifted, spread, mid
 
 # define dataset
 def convert_data_to_labels(stock_name, data_source, robust_scaler):
@@ -141,7 +146,7 @@ def convert_data_to_labels(stock_name, data_source, robust_scaler):
                 npy_x = np.load(x_path, allow_pickle=True)
                 npy_z = np.load(z_path, allow_pickle=True)
 
-                x, p, q, y, z, sp, md, robust_scaler = retrieve_cleansed_data(npy_x, npy_y, npy_z, file, True, False, robust_scaler)
+                x, p, q, y, z, sp, md = retrieve_cleansed_data(npy_x, npy_y, npy_z, file, True, False, robust_scaler)
                 if len(x) > 0:
                     if X is not None:
                         X = np.append(X, x, axis=0)
@@ -184,8 +189,9 @@ def convert_data_to_labels(stock_name, data_source, robust_scaler):
                     else:
                         mid = md
 
-    return X, P, Y, Z, spread, mid, robust_scaler
+    return X, P, Y, Z, spread, mid
 
+convert_data_to_labels('USM_NASDAQ.npy', path.source_train_dev, robust_scaler)
 
 # define dataset
 def convert_data_to_labels_days(stock_name, data_source):

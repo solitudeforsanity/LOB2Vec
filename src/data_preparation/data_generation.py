@@ -13,11 +13,13 @@ from tensorflow.keras import Input, Model, metrics, backend as K
 
 class DataGenerator(Sequence):
     'Generates data for Keras'
-    def __init__(self, Y_values, X_values, gen_type, n_classes, shuffle=False):
+    def __init__(self, Y_values, X_values, S_values, M_values, gen_type, n_classes, shuffle=False):
         'Initialization'
         self.dim = (config.num_frames, config.h, config.w, config.d)
         self.batch_size = config.batch_size
         self.Y_values = Y_values
+        self.S_values = S_values
+        self.M_values = M_values
         self.X_values = X_values
         self.n_classes = n_classes
         self.shuffle = shuffle
@@ -60,23 +62,28 @@ class DataGenerator(Sequence):
        # print(index)
         return np.stack(x_batch, 0), K.one_hot(y_batch, self.n_classes)
 
+    def __gen_multi_task_less_dim(self, index):
+        x_batch = np.zeros((self.batch_size, self.dim[0], self.dim[1], self.dim[2]))
+        y_batch = np.zeros((self.batch_size, len(self.Y_values[0])))
+        for idx_arr, idx  in enumerate(index):
+            x_batch[idx_arr] = self.X_values[idx]
+            y_batch[idx_arr] = self.Y_values[idx]
+        #  return np.stack(x_batch, 0), {"side": y_batch[:,0].astype(int), "action": y_batch[:,1].astype(int), "price_level": y_batch[:,2].astype(int), "liquidity": y_batch[:,3].astype(int)}
+        return np.stack(x_batch, 0), {"price_level": y_batch[:,2].astype(int)}
 
     def __gen_multi_task(self, index):
         x_batch = np.zeros((self.batch_size, self.dim[0], self.dim[1], self.dim[2], self.dim[3]))
+        s_batch = np.zeros((self.batch_size, self.dim[0], 1))
+        m_batch = np.zeros((self.batch_size, self.dim[0], 1))
         y_batch = np.zeros((self.batch_size, len(self.Y_values[0])))
         for idx_arr, idx  in enumerate(index):
             x_batch[idx_arr] = self.X_values[idx]
+            s_batch[idx_arr] = self.S_values[idx]
+            m_batch[idx_arr] = self.M_values[idx]
             y_batch[idx_arr] = self.Y_values[idx]
-        return np.stack(x_batch, 0), {"side": y_batch[:,0].astype(int), "action": y_batch[:,1].astype(int), "price_level": y_batch[:,2].astype(int), "liquidity": y_batch[:,3].astype(int)}
-
-    def old__gen_multi_task(self, index):
-        x_batch = np.zeros((self.batch_size, self.dim[0], self.dim[1], self.dim[2], self.dim[3]))
-        y_batch = np.zeros((self.batch_size, len(self.Y_values[0])))
-        for idx_arr, idx  in enumerate(index):
-            x_batch[idx_arr] = self.X_values[idx]
-            y_batch[idx_arr] = self.Y_values[idx]
-        return np.stack(x_batch, 0), {"side": K.one_hot(y_batch[:,0], config.side_class_size), "action": K.one_hot(y_batch[:,1], config.action_class_size), "price_level": K.one_hot(y_batch[:,2], config.price_level_class_size), "liquidity": K.one_hot(y_batch[:,3], 39)}
-
+        #  return np.stack(x_batch, 0), {"side": y_batch[:,0].astype(int), "action": y_batch[:,1].astype(int), "price_level": y_batch[:,2].astype(int), "liquidity": y_batch[:,3].astype(int)}
+        # mid == 7, spread == 6
+        return [np.stack(m_batch, 0)], {"price": y_batch[:,7].astype(int)}
 
     def __get_triplet(self):
         triplets = [np.zeros((config.batch_size, self.dim[0], self.dim[1], self.dim[2], self.dim[3])) for i in range(3)]
@@ -101,7 +108,7 @@ class DataGenerator(Sequence):
             np.random.shuffle(self.indexes)
 
 
-def get_generator_data(stock, reason, gen_type):
+def get_generator_data(stock, reason, gen_type, robust_scaler):
     if reason == 0:
         # Data for development.
         train_path = paths.source_train_dev
@@ -115,9 +122,11 @@ def get_generator_data(stock, reason, gen_type):
         test_path = paths.source_test
         model_name = 'Main_'
 
-    X_train, Y_train, Z_train = dc.convert_data_to_labels(stock, train_path)
-    X_test, Y_test, Z_test = dc.convert_data_to_labels(stock, test_path)
-    X_val, Y_val, Z_val = dc.convert_data_to_labels(stock, val_path)
+    X_train, P_train, Y_train, Z_train, S_train, M_train, robust_scaler = dc.convert_data_to_labels(stock, train_path, robust_scaler)
+    X_test, P_test, Y_test, Z_test, S_test, M_test, robust_scaler = dc.convert_data_to_labels(stock, test_path, robust_scaler)
+    X_val, P_val, Y_val, Z_val, S_val, M_val, robust_scaler = dc.convert_data_to_labels(stock, val_path, robust_scaler)
+
+
 
     #np.savetxt('Y_train_one_hot.csv', K.one_hot(Y_train, 39), delimiter=',')
     
@@ -134,20 +143,22 @@ def get_generator_data(stock, reason, gen_type):
     """
 
     if gen_type == 0:
-        validation_generator = DataGenerator(Z_val, X_val, gen_type, config.nb_st_classes)
-        training_generator = DataGenerator(Z_train, X_train, gen_type, config.nb_st_classes)
-        test_generator = DataGenerator(Z_test, X_test, gen_type, config.nb_st_classes)
+        # Use below and change clasess as this is wrong
+        validation_generator = DataGenerator(Z_val, X_val, S_val, M_train, gen_type, config.nb_st_classes)
+        training_generator = DataGenerator(Z_train, X_train, S_train, M_train, gen_type, config.nb_st_classes)
+        test_generator = DataGenerator(Z_test, X_test, S_test, M_train, gen_type, config.nb_st_classes)
     elif gen_type == 1:
-        validation_generator = DataGenerator(Y_val, X_val, gen_type, 39)
-        training_generator = DataGenerator(Y_train, X_train, gen_type, 39)
-        test_generator = DataGenerator(Y_test, X_test, gen_type, 39)
+        validation_generator = DataGenerator(Y_val, P_val, S_val, M_val, gen_type, 39)
+        training_generator = DataGenerator(Y_train, P_train, S_train, M_train, gen_type, 39)
+        test_generator = DataGenerator(Y_test, P_test, S_test, M_test, gen_type, 39)
       
-    return training_generator, validation_generator, test_generator, model_name, len(X_train), len(X_val)
+    return training_generator, validation_generator, test_generator, model_name, len(X_train), len(X_val), robust_scaler
 
 def tests():
     import numpy as np
     testg, m, x, t, h, hh = get_generator_data('USM_NASDAQ.npy', 0, 1) 
    # print(testg.__getitem__(4)[0])
+    print(testg.__getitem__(0)[1]['price'].flatten())
     tfliquidity = np.array(testg.__getitem__(0)[1]['liquidity'])
     tfside = np.array(testg.__getitem__(0)[1]['side'])
     tfprice_level = np.array(testg.__getitem__(0)[1]['price_level'])

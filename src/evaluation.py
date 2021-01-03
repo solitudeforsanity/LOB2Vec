@@ -1,5 +1,8 @@
 import sys
 sys.path.append('.')
+sys.path.append("/rds/general/user/kk2219/home/LOB2Vec/src")
+
+import data_preparation.data_cleansing as dc
 import config
 import numpy as np
 import paths
@@ -63,14 +66,39 @@ def multi_acc(History, epoch, name):
     plt.xlabel('epoch')
     plt.savefig(paths.result_images + name + '_acc_multi.png')
 
-def generate_metrics(tf_model, testing_gen, multi_task, stock, model_name):
+def generate_metrics(tf_model, testing_gen, multi_task, stock, model_name, robust_scaler):
+    price = tf_model.predict(testing_gen, steps=testing_gen.__len__())
+    y_labels = np.empty((0))
+    for i in range(0, testing_gen.__len__()):
+        y_labels = np.append(y_labels, testing_gen.__getitem__(i)[1]['price'].flatten(), axis=0)
+    price = price.flatten()
+    time = range(len(price))
+    p_len = len(price)
+    print(p_len)
+    print(len(y_labels))
+    price = price.reshape(-1,1)
+    price = robust_scaler.inverse_transform(price)
+    price = price.reshape(p_len,)
+
+    y_labels = y_labels.reshape(-1,1)
+    y_labels = robust_scaler.inverse_transform(y_labels)
+    y_labels = y_labels.reshape(p_len,)
+
+    print(price)
+    print(y_labels)
+    
+    plt.figure(figsize=(20,10))
+    sns.lineplot(y=price, x=time)
+    sns.lineplot(y=y_labels, x=time)
+    plt.savefig(paths.result_images + stock + '_price_pred.png')
+
+def generate_metrics_real(tf_model, testing_gen, multi_task, stock, model_name):
     if multi_task:
        # loss, side_loss, action_loss, price_level_loss, liquidity_loss, side_binary_accuracy, action_categorical_accuracy, price_level_categorical_accuracy, liquidity_categorical_accuracy = tf_model.evaluate(testing_gen, verbose=2)
         side, action, price_level, liquidity = tf_model.predict(testing_gen, steps=testing_gen.__len__())
         loss, side_loss, action_loss, price_level_loss, liquidity_loss, side_binary_accuracy, action_categorical_accuracy, price_level_categorical_accuracy, liquidity_categorical_accuracy = tf_model.evaluate(testing_gen, verbose=2)
-        print('Side Loss')
-        print(side_binary_accuracy)
-        print(action_categorical_accuracy)
+        #with open():
+        
         create_confusion_matrix(side, 'side', testing_gen, config.nb_mt_classes, config.start_side, config.end_side, stock, model_name)
         create_confusion_matrix(action, 'action', testing_gen, config.nb_mt_classes, config.start_action, config.end_action, stock, model_name)
         create_confusion_matrix(price_level, 'price_level', testing_gen, config.nb_mt_classes, config.start_price_level, config.end_price_level, stock, model_name)
