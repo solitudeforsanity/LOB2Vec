@@ -37,10 +37,11 @@ def model_base(input_shape, nb_classes, network, include_top=False, pooling=None
 
 def multi_task_model(input_shape, network, include_top=False, pooling=None):
     # Define model layers.
-    input1 = Input(shape=input_shape, name='input1')
-    input2 = Input(shape=(config.num_frames, 1), name='input2')
-    input3 = Input(shape=(config.num_frames, 1), name='input3')
-    encoded = network([input3])
+    
+    input1 = Input(shape=(config.num_frames, 1), name='input_1')
+    input2 = Input(shape=(config.num_frames, 1), name='input_2')
+    input3 = Input(shape=input_shape, name='input_3')
+    encoded = network([input1, input2, input3])
     #y1 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='side_1')(encoded)
    # y1 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='side')(y1)
 
@@ -56,7 +57,7 @@ def multi_task_model(input_shape, network, include_top=False, pooling=None):
     y5 = Dense(1, activation='relu', bias_initializer=model.initialize_bias, name='price')(y5)
 
     # and a list of output layers
-    output = Model(inputs=[input3], outputs=[y5])
+    output = Model(inputs=[input1, input2, input3], outputs=[y5])
     plot_model(output, paths.model_images + '/_convlstm_multi_e2e.png', show_shapes=True)
     return output
 
@@ -71,6 +72,8 @@ def train_model_base(reason):
    # "price_level": 'sparse_categorical_crossentropy'
    # "liquidity": "sparse_categorical_crossentropy",
      "price": "mean_squared_error"
+    # "mid": "mean_squared_error",
+   #  "spread": "mean_squared_error"
     }
 
     acc = {
@@ -79,6 +82,8 @@ def train_model_base(reason):
     #"price_level": "sparse_categorical_accuracy"
    # "liquidity": "sparse_categorical_accuracy"
      "price": "mae"
+    # "mid": "mae",
+  #   "spread": "mae"
     }
 
     precision = {
@@ -131,10 +136,9 @@ if __name__ == "__main__":
     gen_type = 1
 
     for stock in config.stock_list:
-        if stock == 'GIS_NASDAQ.npy':
-            tcn_model = train_model_base(my_reason)
-            robust_scaler = RobustScaler()
-            training_gen, validation_gen, testing_gen, model_name, steps_per_epoch_travelled, val_steps_per_epoch_travelled, robust_scaler\
-                                                                        = model.return_parameters(stock, my_reason, gen_type, robust_scaler)
-            tcn_model = model_fit(tcn_model, training_gen, validation_gen, model_name, steps_per_epoch_travelled, val_steps_per_epoch_travelled, my_reason, stock[:-11])
-            evaluation.generate_metrics(tcn_model, testing_gen, True, stock, model_name, robust_scaler)
+        tcn_model = train_model_base(my_reason)
+        robust_scaler = RobustScaler()
+        training_gen, validation_gen, testing_gen, model_name, steps_per_epoch_travelled, val_steps_per_epoch_travelled, robust_scaler\
+                                                                    = model.return_parameters(stock, my_reason, gen_type, robust_scaler)
+        tcn_model = model_fit(tcn_model, training_gen, validation_gen, model_name, steps_per_epoch_travelled, val_steps_per_epoch_travelled, my_reason, stock[:-11])
+        evaluation.generate_metrics(tcn_model, testing_gen, True, stock, model_name, robust_scaler)

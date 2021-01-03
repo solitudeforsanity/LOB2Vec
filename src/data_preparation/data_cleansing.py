@@ -53,17 +53,17 @@ def retrieve_cleansed_data(lob, y_df, z_df, filename, isnormalised, overlapping,
     if isnormalised:
         quantile_transformer = QuantileTransformer()
 
-        lob_qty = lob_qty.reshape(-1,1)
-        lob_qty = robust_scaler.fit_transform(lob_qty)
-        lob_qty = lob_qty.reshape(samples, h, w)
+      #  lob_qty = lob_qty.reshape(-1,1)
+      #  lob_qty = robust_scaler.fit_transform(lob_qty)
+       # lob_qty = lob_qty.reshape(samples, h, w)
 
         mid = mid.reshape(-1, 1)
         mid = robust_scaler.fit_transform(mid)
         mid = mid.reshape(samples,)
 
-        spread = spread.reshape(-1, 1)
-        spread = robust_scaler.fit_transform(spread)
-        spread = spread.reshape(samples,)
+       # spread = spread.reshape(-1, 1)
+       # spread = robust_scaler.fit_transform(spread)
+       # spread = spread.reshape(samples,)
 
 
        # lob_price = lob_price.reshape(-1,1)

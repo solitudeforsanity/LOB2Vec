@@ -65,9 +65,9 @@ def retrieve_cleansed_data(lob, y_df, z_df, filename, isnormalised, overlapping,
         mid = robust_scaler.fit_transform(mid)
         mid = mid.reshape(samples,)
 
-        spread = spread.reshape(-1, 1)
-        spread = robust_scaler.fit_transform(spread)
-        spread = spread.reshape(samples,)
+       # spread = spread.reshape(-1, 1)
+       # spread = robust_scaler.fit_transform(spread)
+       # spread = spread.reshape(samples,)
 
 
        # lob_price = lob_price.reshape(-1,1)
@@ -116,7 +116,7 @@ def retrieve_cleansed_data(lob, y_df, z_df, filename, isnormalised, overlapping,
 
             y_df_shifted = y_df_shifted[timesteps-1::timesteps]
             z_df_shifted = z_df_shifted[timesteps-1::timesteps]
-        return lob_states, lob_price, lob_qty, y_df_shifted, z_df_shifted, spread, mid
+        return lob_states, lob_price, lob_qty, y_df_shifted, z_df_shifted, spread, mid, robust_scaler
 
 # define dataset
 def convert_data_to_labels(stock_name, data_source, robust_scaler):
@@ -146,7 +146,7 @@ def convert_data_to_labels(stock_name, data_source, robust_scaler):
                 npy_x = np.load(x_path, allow_pickle=True)
                 npy_z = np.load(z_path, allow_pickle=True)
 
-                x, p, q, y, z, sp, md = retrieve_cleansed_data(npy_x, npy_y, npy_z, file, True, False, robust_scaler)
+                x, p, q, y, z, sp, md, robust_scaler = retrieve_cleansed_data(npy_x, npy_y, npy_z, file, True, False, robust_scaler)
                 if len(x) > 0:
                     if X is not None:
                         X = np.append(X, x, axis=0)
@@ -189,9 +189,42 @@ def convert_data_to_labels(stock_name, data_source, robust_scaler):
                     else:
                         mid = md
 
-    return X, P, Y, Z, spread, mid
+    return X, P, Y, Z, spread, mid, robust_scaler
 
-convert_data_to_labels('USM_NASDAQ.npy', path.source_train_dev, robust_scaler)
+X, P, Y, Z, spread, mid, robust_scaler = convert_data_to_labels('USM_NASDAQ.npy', path.source_train_dev, robust_scaler)
+
+def test_for_scaling():
+    # Note Y neds to be passed without scaling
+    print(Y[:,7])
+    lenthofmid = len(Y[:,7])
+    new_mid = Y[:,7].reshape(-1,1)
+    new_mid = robust_scaler.fit_transform(new_mid)
+    new_mid = new_mid.reshape(lenthofmid,)
+
+    # transformed back 
+    newl = len(new_mid)
+    mid = new_mid.reshape(-1,1)
+    mid = robust_scaler.inverse_transform(mid)
+    mid = mid.reshape(newl,)
+    print(mid)
+
+    print(newl)
+    print(lenthofmid)
+
+
+    test_orig = np.array([1., -2.,  2., 4.,  -2.,  1.,  3., 5.,  4.,  1., -2., 10000000])
+    mylen = len(test_orig)
+    test = test_orig.reshape(-1,1)
+    transformer = RobustScaler()
+    newtest = transformer.fit_transform(test)
+    newtest = newtest.reshape(mylen,)
+    newtest = newtest.reshape(-1,1)
+    final = transformer.inverse_transform(newtest)
+    final = final.reshape(mylen,)
+    print(newtest)
+    print(final)
+
+
 
 # define dataset
 def convert_data_to_labels_days(stock_name, data_source):

@@ -1,6 +1,6 @@
 # Parameters - Modifiable for Various Configurations
 embedding_size = 120
-batch_size = 50
+batch_size = 100
 no_epochs = 1
 num_frames = 20
 nb_st_classes = 21

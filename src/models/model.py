@@ -26,11 +26,14 @@ def simple_starts():
     # Works for Spread and Mid Seperately reasonably well
     frames, h, w, d, embedding_size = config.num_frames, config.h, config.w, config.d, config.embedding_size
     inp1 = Input(shape=(frames, 1))
+    inp2 = Input(shape=(frames, 1))
+    inp3 = Input(shape=(frames, h, w, d))
+
     out1 = LSTM(50, input_shape=(config.batch_size, frames, 1), recurrent_dropout=0.2, return_sequences=True)(inp1)
     out1 = LSTM(50, recurrent_dropout=0.2, return_sequences=True)(out1)
     out1 = LSTM(50, recurrent_dropout=0.2, return_sequences=True)(out1)
     out1 = LSTM(50, recurrent_dropout=0.2, return_sequences=False)(out1)
-    return Model(inputs=[inp1], outputs=out1)
+    return Model(inputs=[inp1, inp2, inp3], outputs=out1)
 
 def tcn_network():
     frames, h, w, d, embedding_size = config.num_frames, config.h, config.w, config.d, config.embedding_size
