@@ -66,45 +66,51 @@ def multi_acc(History, epoch, name):
     plt.xlabel('epoch')
     plt.savefig(paths.result_images + name + '_acc_multi.png')    
 
-def generate_metrics(tf_model, testing_gen, multi_task, stock, model_name, robust_scaler):
-    price, side = tf_model.predict(testing_gen, steps=testing_gen.__len__())
+def generate_metrics(tf_model, testing_gen, multi_task, stock, model_name, scaler):
+    mid, price, price_level = tf_model.predict(testing_gen, steps=testing_gen.__len__())
     for feature_name in config.features_classification:
         if multi_task:
         # loss, side_loss, action_loss, price_level_loss, liquidity_loss, side_binary_accuracy, action_categorical_accuracy, price_level_categorical_accuracy, liquidity_categorical_accuracy = tf_model.evaluate(testing_gen, verbose=2)
             
-            print(side)
+           # print(side)
            # loss, side_loss, action_loss, price_level_loss, liquidity_loss, side_binary_accuracy, action_categorical_accuracy, price_level_categorical_accuracy, liquidity_categorical_accuracy = tf_model.evaluate(testing_gen, verbose=2)
             #with open():
             
-            create_confusion_matrix(side, 'side', testing_gen, config.nb_mt_classes, config.start_side, config.end_side, stock, model_name)
+           # create_confusion_matrix(side, 'side', testing_gen, config.nb_mt_classes, config.start_side, config.end_side, stock, model_name)
             #create_confusion_matrix(action, 'action', testing_gen, config.nb_mt_classes, config.start_action, config.end_action, stock, model_name)
-        # create_confusion_matrix(price_level, 'price_level', testing_gen, config.nb_mt_classes, config.start_price_level, config.end_price_level, stock, model_name)
-        # create_confusion_matrix(liquidity, 'liquidity', testing_gen, config.nb_mt_classes, config.start_liquidity, config.end_liquidity, stock, model_name)
+            create_confusion_matrix(price_level, 'price_level', testing_gen, config.nb_mt_classes, config.start_price_level, config.end_price_level, stock, model_name)
+            # create_confusion_matrix(liquidity, 'liquidity', testing_gen, config.nb_mt_classes, config.start_liquidity, config.end_liquidity, stock, model_name)
 
     for feature_name in config.features_regression:
+        create_line_plot(testing_gen, stock, price, 'price', False, scaler)
+
+
+def create_line_plot(testing_gen, stock, feature, feature_name, should_rescale, scaler):
         y_labels = np.empty((0))
         for i in range(0, testing_gen.__len__()):
             y_labels = np.append(y_labels, testing_gen.__getitem__(i)[1][feature_name].flatten(), axis=0)
-        print(price)
-        price = price.flatten()
-        time = range(len(price))
-        p_len = len(price)
-        print(p_len)
+        feature = feature.flatten()
+        time = range(len(feature))
+        feature_len = len(feature)
+        print(feature_len)
         print(len(y_labels))
-        price = price.reshape(-1,1)
-        price = robust_scaler.inverse_transform(price)
-        price = price.reshape(p_len,)
 
-        y_labels = y_labels.reshape(-1,1)
-        y_labels = robust_scaler.inverse_transform(y_labels)
-        y_labels = y_labels.reshape(p_len,)
+        if should_rescale:
+            feature = feature.reshape(-1,1)
+            feature = scaler.inverse_transform(feature)
+            feature = feature.reshape(feature_len,)
 
-        print(price)
+            y_labels = y_labels.reshape(-1,1)
+            y_labels = scaler.inverse_transform(y_labels)
+            y_labels = y_labels.reshape(feature_len,)
+
+        print(feature)
         print(y_labels)
         
         plt.figure(figsize=(20,10))
-        sns.lineplot(y=price, x=time, label='Prediction')
-        sns.lineplot(y=y_labels, x=time, label='Original')
+        sns.lineplot(y=feature[10:], x=time[10:], label='Prediction')
+        sns.lineplot(y=y_labels[10:], x=time[10:], label='Original')
+
         plt.savefig(paths.result_images + stock + "_" + feature_name + '_pred.png')
 
 def create_confusion_matrix(feature, feature_name, testing_gen, label_size, start_idx, end_idx, stock, model_name):

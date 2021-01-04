@@ -52,8 +52,17 @@ def retrieve_cleansed_data(lob, y_df, z_df, filename, isnormalised, overlapping,
     lob_timestamp = lob_timestamp / np.timedelta64(1, 'us')
 
     spread = lob['price'][:,0,1,0] - lob['price'][:,0,0,0]
-    mid = (lob['price'][:,0,1,0] + lob['price'][:,0,0,0])/2
+    mid = np.where(((lob['price'][:,0,1,0] > 0) & (lob['price'][:,0,0,0] > 0)), ((lob['price'][:,0,1,0] + lob['price'][:,0,0,0])/2),\
+          np.where(((lob['price'][:,0,1,0] > 0) & (lob['price'][:,0,0,0] == 0)), lob['price'][:,0,1,0], \
+          np.where(((lob['price'][:,0,0,0] > 0) & (lob['price'][:,0,1,0] == 0)), lob['price'][:,0,0,0], 0)))
+    
     price_stream = y_df[:,4]
+    print(len(price_stream))
+    print(len(mid))
+    print(price_stream)
+    print(mid)
+    print(mid - price_stream.astype(float))
+    
     vol_stream = y_df[:,5]
     
     if isnormalised:
@@ -63,17 +72,17 @@ def retrieve_cleansed_data(lob, y_df, z_df, filename, isnormalised, overlapping,
       #  lob_qty = robust_scaler.fit_transform(lob_qty)
        # lob_qty = lob_qty.reshape(samples, h, w)
 
-        #mid = mid.reshape(-1, 1)
-       # mid = robust_scaler.fit_transform(mid)
-        #mid = mid.reshape(samples,)
-
-       # spread = spread.reshape(-1, 1)
+        #spread = spread.reshape(-1, 1)
        # spread = robust_scaler.fit_transform(spread)
-       # spread = spread.reshape(samples,)
+        #spread = spread.reshape(samples,)
 
-        price_stream = price_stream.reshape(-1, 1)
-        price_stream = robust_scaler.fit_transform(price_stream)
-        price_stream = price_stream.reshape(samples,)
+     ##   mid = mid.reshape(-1, 1)
+       # mid = robust_scaler.fit_transform(mid)
+      #  mid = mid.reshape(samples,)
+
+        #price_stream = price_stream.reshape(-1, 1)
+        #price_stream = robust_scaler.fit_transform(price_stream)
+        #price_stream = price_stream.reshape(samples,)
 
         
        # lob_price = lob_price.reshape(-1,1)
@@ -83,15 +92,16 @@ def retrieve_cleansed_data(lob, y_df, z_df, filename, isnormalised, overlapping,
     # If Time of entry is necessary add lob_ts and make last dimension 3
     lob_states = np.dstack((lob_price))
     lob_states = lob_states.reshape(samples, h, w, d)
-    lob_price = lob_price[...,np.newaxis]
 
     y_spread = spread.reshape(-1, 1)
     y_mid = mid.reshape(-1, 1)
     y_df = np.append(y_df, y_spread, axis=1)
     y_df = np.append(y_df, y_mid, axis=1)
     
+    # Make spread and Mid Usable in LSTM Networks
     spread = spread[...,np.newaxis]
     mid = mid[...,np.newaxis]
+    lob_price = lob_price[...,np.newaxis]
 
     # We use the num_frames for step count so that the windows are non-overlapping. We can also use view_as_blocks but the issue with this is that it
     # requires precise block splits. i.e: If block does not have enough data it will not make block
@@ -104,13 +114,13 @@ def retrieve_cleansed_data(lob, y_df, z_df, filename, isnormalised, overlapping,
         z_df_shifted = shift(z_df, -1, cval=0)
         y_df = y_df.astype(float)
         y_df_shifted = shift(y_df, shift=[-1,0], cval=0)
+        y_df_shifted[:,4] = y_df_shifted[:,7] - y_df_shifted[:,4]
+        print(len(y_df_shifted[:,4]))
 
         if overlapping:
             lob_states = view_as_windows(lob_states,(timesteps,1,1,1))[...,0,0,0].transpose(0,4,1,2,3)
             lob_price = view_as_windows(lob_price,(timesteps,1,1,1))[...,0,0,0].transpose(0,4,1,2,3)
             spread = view_as_windows(spread,(timesteps,1))[...,0].transpose(0,2,1)
-            
-            mid = view_as_windows(mid,(timesteps,1))[...,0].transpose(0,2,1)
             mid = view_as_windows(mid,(timesteps,1))[...,0].transpose(0,2,1)
 
             y_df_shifted = y_df_shifted[timesteps-1:len(y_df_shifted)]
@@ -120,9 +130,11 @@ def retrieve_cleansed_data(lob, y_df, z_df, filename, isnormalised, overlapping,
             lob_price = view_as_windows(lob_price,(timesteps,1,1,1), step=(timesteps,1,1,1))[...,0,0,0].transpose(0,4,1,2,3)
             spread = view_as_windows(spread,(timesteps,1), step=(timesteps,1))[...,0].transpose(0,2,1)
             mid = view_as_windows(mid,(timesteps,1), step=(timesteps,1))[...,0].transpose(0,2,1)
-            
+
             y_df_shifted = y_df_shifted[timesteps-1::timesteps]
             z_df_shifted = z_df_shifted[timesteps-1::timesteps]
+            
+        # change price_stream to mid to work cor
         return lob_states, lob_price, lob_qty, y_df_shifted, z_df_shifted, spread, mid, robust_scaler
 
 # define dataset
@@ -198,7 +210,8 @@ def convert_data_to_labels(stock_name, data_source, robust_scaler):
 
     return X, P, Y, Z, spread, mid, robust_scaler
 
-X, P, Y, Z, spread, mid, robust_scaler = convert_data_to_labels('USM_NASDAQ.npy', path.source_train_dev, robust_scaler)
+X, P, Y, Z, spread, mid, robust_scaler = convert_data_to_labels('USM_NASDAQ.npy', path.source_test_dev, robust_scaler)
+
 
 def test_for_scaling():
     # Note Y neds to be passed without scaling so cmment out code inside rnoramliseation

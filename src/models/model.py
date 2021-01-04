@@ -22,30 +22,6 @@ def initialize_bias(shape, name=None, dtype=None):
     """
     return np.random.normal(loc = 0.5, scale = 1e-2, size = shape)
 
-def simple_starts():
-    # Works for Spread and Mid Seperately reasonably well
-    frames, h, w, d, embedding_size = config.num_frames, config.h, config.w, config.d, config.embedding_size
-    inp1 = Input(shape=(frames, 1)) # Mid Price 
-    inp2 = Input(shape=(frames, 1)) # Spread
-    inp3 = Input(shape=(frames, h, w, d)) # Entire LOB
-
-    out1 = LSTM(50, input_shape=(config.batch_size, frames, 1), recurrent_dropout=0.2, return_sequences=True)(inp1)
-    out1 = LSTM(50, recurrent_dropout=0.2, return_sequences=True)(out1)
-    out1 = LSTM(50, recurrent_dropout=0.2, return_sequences=True)(out1)
-    out1 = LSTM(50, recurrent_dropout=0.2, return_sequences=False)(out1)
-
-    out2 = Lambda(lambda y: K.reshape(y, (-1, h, w, d)))(inp3)
-    num_features_cnn = np.prod(K.int_shape(out2)[1:])
-    out2 = Lambda(lambda y: K.reshape(y, (-1, frames, num_features_cnn)))(inp3)
-    out2 = BatchNormalization()(out2)
-    out2 = TCN(nb_filters=128, kernel_size=2, return_sequences=True, dilations=[1, 2, 4, 8, 16, 32, 64],
-              activation=tf.keras.activations.swish, nb_stacks=2, use_batch_norm=True, dropout_rate=0.08, kernel_initializer='he_uniform')(out2)
-    out2 = Flatten()(out2)
-    out2 = Dense(embedding_size, activation=None, kernel_regularizer=l2(1e-3), kernel_initializer='he_uniform')(out2)
-
-    return Model(inputs=[inp1, inp2, inp3], outputs=[out1, out2])
-
-# Does not work for side prediction
 def simple_starts_tcn():
     # Works for Spread and Mid Seperately reasonably well
     frames, h, w, d, embedding_size = config.num_frames, config.h, config.w, config.d, config.embedding_size
@@ -67,10 +43,35 @@ def simple_starts_tcn():
     out2 = Flatten()(out2)
     out2 = Dense(embedding_size, activation=None, kernel_regularizer=l2(1e-3), kernel_initializer='he_uniform')(out2)
 
-    return Model(inputs=[inp1, inp2, inp3], outputs=[out1, out2])
+    return Model(inputs=[inp1, inp2, inp3], outputs=[out2])
+
+# Does not work for side prediction
+def simple_starts():
+    # Works for Spread and Mid Seperately reasonably well
+    frames, h, w, d, embedding_size = config.num_frames, config.h, config.w, config.d, config.embedding_size
+    inp1 = Input(shape=(frames, 1)) # Mid Price 
+    inp2 = Input(shape=(frames, 1)) # Spread
+    inp3 = Input(shape=(frames, h, w, d)) # Entire LOB
+
+    out1 = LSTM(50, input_shape=(config.batch_size, frames, 1), recurrent_dropout=0.2, return_sequences=True)(inp1)
+    out1 = LSTM(50, recurrent_dropout=0.2, return_sequences=True)(out1)
+    out1 = LSTM(50, recurrent_dropout=0.2, return_sequences=True)(out1)
+    out1 = LSTM(50, recurrent_dropout=0.2, return_sequences=False)(out1)
+
+    out = ConvLSTM2D(filters=128, kernel_size=(2,2), input_shape=(frames, h, w, d), return_sequences=True, recurrent_activation='hard_sigmoid', activation=tf.keras.activations.swish, padding='same', kernel_initializer='glorot_uniform', name='convlstm2d_1')(inp3)
+    out = BatchNormalization()(out)
+    out = Dropout(0.3, name='dropout_1')(out)
+    out = ConvLSTM2D(filters=64, kernel_size=(2,2), input_shape=(frames, h, w, d), return_sequences=False, recurrent_activation='hard_sigmoid', activation='tanh', padding='same', kernel_initializer='glorot_uniform', name='convlstm2d_2')(out)
+    #out = BatchNormalization()(out)
+    #out = TimeDistributed(Flatten(name="flatten"))(out)
+    #out = TimeDistributed(Dense(embedding_size, activation=None, kernel_regularizer=l2(1e-3), kernel_initializer='he_uniform'))(out)
+    out = Flatten()(out)
+    out = Dense(embedding_size, activation=None, kernel_regularizer=l2(1e-3), kernel_initializer='he_uniform')(out)
+
+    return Model(inputs=[inp1, inp2, inp3], outputs=[out1, out])
 
 def simple_starts_mid_to_play():
-    # Works for Spread and Mid Seperately reasonably well
+    # Works for Mid reasonably well
     frames, h, w, d, embedding_size = config.num_frames, config.h, config.w, config.d, config.embedding_size
     inp1 = Input(shape=(frames, 1)) # Mid Price 
     inp2 = Input(shape=(frames, 1)) # Spread

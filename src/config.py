@@ -1,8 +1,8 @@
 # Parameters - Modifiable for Various Configurations
 embedding_size = 120
-batch_size = 200
+batch_size = 100
 no_epochs = 1
-num_frames = 20
+num_frames = 50
 nb_st_classes = 21
 nb_mt_classes = 41
 start_side = 0
@@ -20,5 +20,5 @@ stock_list = ['CCL_NASDAQ.npy', 'EBAY_NASDAQ.npy', 'GIS_NASDAQ.npy', 'SJM_NASDAQ
 #features_classification = ['side', 'action', 'price_level', 'liquidity']
 #features_regression = ['mid', 'price', 'spread']
 
-features_classification = ['side']
-features_regression = ['mid']
+features_classification = ['price_level']
+features_regression = ['mid', 'price']
