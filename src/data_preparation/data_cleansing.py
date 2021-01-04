@@ -49,6 +49,8 @@ def retrieve_cleansed_data(lob, y_df, z_df, filename, isnormalised, overlapping,
 
     spread = lob['price'][:,0,1,0] - lob['price'][:,0,0,0]
     mid = (lob['price'][:,0,1,0] + lob['price'][:,0,0,0])/2
+    price_stream = y_df[:,4]
+    vol_stream = y_df[:,5]
     
     if isnormalised:
         quantile_transformer = QuantileTransformer()
@@ -57,15 +59,19 @@ def retrieve_cleansed_data(lob, y_df, z_df, filename, isnormalised, overlapping,
       #  lob_qty = robust_scaler.fit_transform(lob_qty)
        # lob_qty = lob_qty.reshape(samples, h, w)
 
+        #spread = spread.reshape(-1, 1)
+       # spread = robust_scaler.fit_transform(spread)
+        #spread = spread.reshape(samples,)
+
         mid = mid.reshape(-1, 1)
         mid = robust_scaler.fit_transform(mid)
         mid = mid.reshape(samples,)
 
-       # spread = spread.reshape(-1, 1)
-       # spread = robust_scaler.fit_transform(spread)
-       # spread = spread.reshape(samples,)
+        #price_stream = price_stream.reshape(-1, 1)
+        #price_stream = robust_scaler.fit_transform(price_stream)
+        #price_stream = price_stream.reshape(samples,)
 
-
+        
        # lob_price = lob_price.reshape(-1,1)
        # lob_price = min_max_scaler.fit_transform(lob_price)
        # lob_price = lob_price.reshape(lob_n, h, w)
@@ -73,15 +79,16 @@ def retrieve_cleansed_data(lob, y_df, z_df, filename, isnormalised, overlapping,
     # If Time of entry is necessary add lob_ts and make last dimension 3
     lob_states = np.dstack((lob_price))
     lob_states = lob_states.reshape(samples, h, w, d)
-    lob_price = lob_price[...,np.newaxis]
 
     y_spread = spread.reshape(-1, 1)
     y_mid = mid.reshape(-1, 1)
     y_df = np.append(y_df, y_spread, axis=1)
     y_df = np.append(y_df, y_mid, axis=1)
     
+    # Make spread and Mid Usable in LSTM Networks
     spread = spread[...,np.newaxis]
     mid = mid[...,np.newaxis]
+    lob_price = lob_price[...,np.newaxis]
 
     # We use the num_frames for step count so that the windows are non-overlapping. We can also use view_as_blocks but the issue with this is that it
     # requires precise block splits. i.e: If block does not have enough data it will not make block
@@ -111,6 +118,8 @@ def retrieve_cleansed_data(lob, y_df, z_df, filename, isnormalised, overlapping,
 
             y_df_shifted = y_df_shifted[timesteps-1::timesteps]
             z_df_shifted = z_df_shifted[timesteps-1::timesteps]
+            
+        # change price_stream to mid to work cor
         return lob_states, lob_price, lob_qty, y_df_shifted, z_df_shifted, spread, mid, robust_scaler
 
 # define dataset
@@ -141,7 +150,7 @@ def convert_data_to_labels(stock_name, data_source, robust_scaler):
                 npy_x = np.load(x_path, allow_pickle=True)
                 npy_z = np.load(z_path, allow_pickle=True)
 
-                x, p, q, y, z, sp, md, robust_scaler = retrieve_cleansed_data(npy_x, npy_y, npy_z, file, True, False, robust_scaler)
+                x, p, q, y, z, sp, md, robust_scaler = retrieve_cleansed_data(npy_x, npy_y, npy_z, file, True, True, robust_scaler)
                 if len(x) > 0:
                     if X is not None:
                         X = np.append(X, x, axis=0)

@@ -25,9 +25,56 @@ def initialize_bias(shape, name=None, dtype=None):
 def simple_starts():
     # Works for Spread and Mid Seperately reasonably well
     frames, h, w, d, embedding_size = config.num_frames, config.h, config.w, config.d, config.embedding_size
-    inp1 = Input(shape=(frames, 1))
-    inp2 = Input(shape=(frames, 1))
-    inp3 = Input(shape=(frames, h, w, d))
+    inp1 = Input(shape=(frames, 1)) # Mid Price 
+    inp2 = Input(shape=(frames, 1)) # Spread
+    inp3 = Input(shape=(frames, h, w, d)) # Entire LOB
+
+    out1 = LSTM(50, input_shape=(config.batch_size, frames, 1), recurrent_dropout=0.2, return_sequences=True)(inp1)
+    out1 = LSTM(50, recurrent_dropout=0.2, return_sequences=True)(out1)
+    out1 = LSTM(50, recurrent_dropout=0.2, return_sequences=True)(out1)
+    out1 = LSTM(50, recurrent_dropout=0.2, return_sequences=False)(out1)
+
+    out2 = Lambda(lambda y: K.reshape(y, (-1, h, w, d)))(inp3)
+    num_features_cnn = np.prod(K.int_shape(out2)[1:])
+    out2 = Lambda(lambda y: K.reshape(y, (-1, frames, num_features_cnn)))(inp3)
+    out2 = BatchNormalization()(out2)
+    out2 = TCN(nb_filters=128, kernel_size=2, return_sequences=True, dilations=[1, 2, 4, 8, 16, 32, 64],
+              activation=tf.keras.activations.swish, nb_stacks=2, use_batch_norm=True, dropout_rate=0.08, kernel_initializer='he_uniform')(out2)
+    out2 = Flatten()(out2)
+    out2 = Dense(embedding_size, activation=None, kernel_regularizer=l2(1e-3), kernel_initializer='he_uniform')(out2)
+
+    return Model(inputs=[inp1, inp2, inp3], outputs=[out1, out2])
+
+# Does not work for side prediction
+def simple_starts_tcn():
+    # Works for Spread and Mid Seperately reasonably well
+    frames, h, w, d, embedding_size = config.num_frames, config.h, config.w, config.d, config.embedding_size
+    inp1 = Input(shape=(frames, 1)) # Mid Price 
+    inp2 = Input(shape=(frames, 1)) # Spread
+    inp3 = Input(shape=(frames, h, w, d)) # Entire LOB
+
+    out1 = LSTM(50, input_shape=(config.batch_size, frames, 1), recurrent_dropout=0.2, return_sequences=True)(inp1)
+    out1 = LSTM(50, recurrent_dropout=0.2, return_sequences=True)(out1)
+    out1 = LSTM(50, recurrent_dropout=0.2, return_sequences=True)(out1)
+    out1 = LSTM(50, recurrent_dropout=0.2, return_sequences=False)(out1)
+
+    out2 = Lambda(lambda y: K.reshape(y, (-1, h, w, d)))(inp3)
+    num_features_cnn = np.prod(K.int_shape(out2)[1:])
+    out2 = Lambda(lambda y: K.reshape(y, (-1, frames, num_features_cnn)))(inp3)
+    out2 = BatchNormalization()(out2)
+    out2 = TCN(nb_filters=128, kernel_size=2, return_sequences=True, dilations=[1, 2, 4, 8, 16, 32, 64],
+              activation=tf.keras.activations.swish, nb_stacks=2, use_batch_norm=True, dropout_rate=0.08, kernel_initializer='he_uniform')(out2)
+    out2 = Flatten()(out2)
+    out2 = Dense(embedding_size, activation=None, kernel_regularizer=l2(1e-3), kernel_initializer='he_uniform')(out2)
+
+    return Model(inputs=[inp1, inp2, inp3], outputs=[out1, out2])
+
+def simple_starts_mid_to_play():
+    # Works for Spread and Mid Seperately reasonably well
+    frames, h, w, d, embedding_size = config.num_frames, config.h, config.w, config.d, config.embedding_size
+    inp1 = Input(shape=(frames, 1)) # Mid Price 
+    inp2 = Input(shape=(frames, 1)) # Spread
+    inp3 = Input(shape=(frames, h, w, d)) # Entire LOB
 
     out1 = LSTM(50, input_shape=(config.batch_size, frames, 1), recurrent_dropout=0.2, return_sequences=True)(inp1)
     out1 = LSTM(50, recurrent_dropout=0.2, return_sequences=True)(out1)

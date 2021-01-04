@@ -53,23 +53,29 @@ def retrieve_cleansed_data(lob, y_df, z_df, filename, isnormalised, overlapping,
 
     spread = lob['price'][:,0,1,0] - lob['price'][:,0,0,0]
     mid = (lob['price'][:,0,1,0] + lob['price'][:,0,0,0])/2
+    price_stream = y_df[:,4]
+    vol_stream = y_df[:,5]
     
     if isnormalised:
         quantile_transformer = QuantileTransformer()
 
-        lob_qty = lob_qty.reshape(-1,1)
-        lob_qty = robust_scaler.fit_transform(lob_qty)
-        lob_qty = lob_qty.reshape(samples, h, w)
+      #  lob_qty = lob_qty.reshape(-1,1)
+      #  lob_qty = robust_scaler.fit_transform(lob_qty)
+       # lob_qty = lob_qty.reshape(samples, h, w)
 
-        mid = mid.reshape(-1, 1)
-        mid = robust_scaler.fit_transform(mid)
-        mid = mid.reshape(samples,)
+        #mid = mid.reshape(-1, 1)
+       # mid = robust_scaler.fit_transform(mid)
+        #mid = mid.reshape(samples,)
 
        # spread = spread.reshape(-1, 1)
        # spread = robust_scaler.fit_transform(spread)
        # spread = spread.reshape(samples,)
 
+        price_stream = price_stream.reshape(-1, 1)
+        price_stream = robust_scaler.fit_transform(price_stream)
+        price_stream = price_stream.reshape(samples,)
 
+        
        # lob_price = lob_price.reshape(-1,1)
        # lob_price = min_max_scaler.fit_transform(lob_price)
        # lob_price = lob_price.reshape(lob_n, h, w)
@@ -83,7 +89,6 @@ def retrieve_cleansed_data(lob, y_df, z_df, filename, isnormalised, overlapping,
     y_mid = mid.reshape(-1, 1)
     y_df = np.append(y_df, y_spread, axis=1)
     y_df = np.append(y_df, y_mid, axis=1)
-    print(y_df.shape)
     
     spread = spread[...,np.newaxis]
     mid = mid[...,np.newaxis]
@@ -104,6 +109,8 @@ def retrieve_cleansed_data(lob, y_df, z_df, filename, isnormalised, overlapping,
             lob_states = view_as_windows(lob_states,(timesteps,1,1,1))[...,0,0,0].transpose(0,4,1,2,3)
             lob_price = view_as_windows(lob_price,(timesteps,1,1,1))[...,0,0,0].transpose(0,4,1,2,3)
             spread = view_as_windows(spread,(timesteps,1))[...,0].transpose(0,2,1)
+            
+            mid = view_as_windows(mid,(timesteps,1))[...,0].transpose(0,2,1)
             mid = view_as_windows(mid,(timesteps,1))[...,0].transpose(0,2,1)
 
             y_df_shifted = y_df_shifted[timesteps-1:len(y_df_shifted)]
@@ -113,7 +120,7 @@ def retrieve_cleansed_data(lob, y_df, z_df, filename, isnormalised, overlapping,
             lob_price = view_as_windows(lob_price,(timesteps,1,1,1), step=(timesteps,1,1,1))[...,0,0,0].transpose(0,4,1,2,3)
             spread = view_as_windows(spread,(timesteps,1), step=(timesteps,1))[...,0].transpose(0,2,1)
             mid = view_as_windows(mid,(timesteps,1), step=(timesteps,1))[...,0].transpose(0,2,1)
-
+            
             y_df_shifted = y_df_shifted[timesteps-1::timesteps]
             z_df_shifted = z_df_shifted[timesteps-1::timesteps]
         return lob_states, lob_price, lob_qty, y_df_shifted, z_df_shifted, spread, mid, robust_scaler
@@ -194,7 +201,7 @@ def convert_data_to_labels(stock_name, data_source, robust_scaler):
 X, P, Y, Z, spread, mid, robust_scaler = convert_data_to_labels('USM_NASDAQ.npy', path.source_train_dev, robust_scaler)
 
 def test_for_scaling():
-    # Note Y neds to be passed without scaling
+    # Note Y neds to be passed without scaling so cmment out code inside rnoramliseation
     print(Y[:,7])
     lenthofmid = len(Y[:,7])
     new_mid = Y[:,7].reshape(-1,1)
@@ -223,6 +230,8 @@ def test_for_scaling():
     final = final.reshape(mylen,)
     print(newtest)
     print(final)
+
+#test_for_scaling()
 
 
 

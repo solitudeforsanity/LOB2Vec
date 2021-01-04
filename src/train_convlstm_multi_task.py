@@ -19,12 +19,15 @@ from tensorflow.keras import Input, Model, metrics, backend as K
 from tensorflow.keras.callbacks import CSVLogger, TensorBoard
 from tensorflow.keras.layers import Dense, Conv2D, Layer, Lambda, Flatten, BatchNormalization, Dropout
 from tensorflow.keras.models import load_model
+from tensorflow.keras import metrics
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.utils import plot_model
 from sklearn.metrics import confusion_matrix
 from sklearn.preprocessing import MinMaxScaler, QuantileTransformer, RobustScaler
 AUTOTUNE = tf.data.experimental.AUTOTUNE
+
+# file:///Users/kaushalyakularatnam/Downloads/mca-25-00053.pdf
 
 #----------------BASE MODEL-----------------#
 
@@ -41,9 +44,13 @@ def multi_task_model(input_shape, network, include_top=False, pooling=None):
     input1 = Input(shape=(config.num_frames, 1), name='input_1')
     input2 = Input(shape=(config.num_frames, 1), name='input_2')
     input3 = Input(shape=input_shape, name='input_3')
-    encoded = network([input1, input2, input3])
-    #y1 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='side_1')(encoded)
-   # y1 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='side')(y1)
+
+    encoded1,  encoded2 = network([input1, input2, input3])
+     # Mid, Side, 
+    y1 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='price_1')(encoded1)
+    y1 = Dense(1, activation='relu', bias_initializer=model.initialize_bias, name='mid')(y1)
+
+    y2 = Dense(41, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='side')(encoded2)
 
    # y2 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='action_1')(encoded)
     #y2 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='action')(y2)
@@ -53,13 +60,15 @@ def multi_task_model(input_shape, network, include_top=False, pooling=None):
 
     #y4 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='liquidity')(encoded)
 
-    y5 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='price_1')(encoded)
-    y5 = Dense(1, activation='relu', bias_initializer=model.initialize_bias, name='price')(y5)
 
     # and a list of output layers
-    output = Model(inputs=[input1, input2, input3], outputs=[y5])
+    output = Model(inputs=[input1, input2, input3], outputs=[y1, y2])
     plot_model(output, paths.model_images + '/_convlstm_multi_e2e.png', show_shapes=True)
     return output
+
+def soft_acc(y_true, y_pred):
+    return K.mean(K.equal(K.round(y_true), K.round(y_pred)))
+
 
 def train_model_base(reason):
     build_representation = model.simple_starts()
@@ -67,22 +76,22 @@ def train_model_base(reason):
     optimizer = Adam(lr = 0.000001)
 
     losses = {
-	#"side": "sparse_categorical_crossentropy"
+	"side": "sparse_categorical_crossentropy",
 	#"action": "sparse_categorical_crossentropy",
    # "price_level": 'sparse_categorical_crossentropy'
    # "liquidity": "sparse_categorical_crossentropy",
-     "price": "mean_squared_error"
-    # "mid": "mean_squared_error",
+     "mid": "mean_squared_error"
+    # "price": "mean_squared_error",
    #  "spread": "mean_squared_error"
     }
 
     acc = {
-	#"side": "sparse_categorical_accuracy"
+	"side": "sparse_categorical_accuracy",
 	#"action": "sparse_categorical_accuracy",
     #"price_level": "sparse_categorical_accuracy"
    # "liquidity": "sparse_categorical_accuracy"
-     "price": "mae"
-    # "mid": "mae",
+     "mid":  [metrics.RootMeanSquaredError(), metrics.MeanAbsoluteError()]
+    # "price": "mae",
   #   "spread": "mae"
     }
 
@@ -138,6 +147,7 @@ if __name__ == "__main__":
     for stock in config.stock_list:
         tcn_model = train_model_base(my_reason)
         robust_scaler = RobustScaler()
+        min_max_scaler = MinMaxScaler(feature_range=(-1,1))
         training_gen, validation_gen, testing_gen, model_name, steps_per_epoch_travelled, val_steps_per_epoch_travelled, robust_scaler\
                                                                     = model.return_parameters(stock, my_reason, gen_type, robust_scaler)
         tcn_model = model_fit(tcn_model, training_gen, validation_gen, model_name, steps_per_epoch_travelled, val_steps_per_epoch_travelled, my_reason, stock[:-11])

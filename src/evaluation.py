@@ -64,45 +64,48 @@ def multi_acc(History, epoch, name):
     plt.legend(['side:train', 'side:val', 'action:train', 'action:val', 'price-level:train', 'price-level:val', 'liquidity-level:train', 'liquidity-level:val'], loc='upper left')
     plt.ylabel('accuracy')
     plt.xlabel('epoch')
-    plt.savefig(paths.result_images + name + '_acc_multi.png')
+    plt.savefig(paths.result_images + name + '_acc_multi.png')    
 
 def generate_metrics(tf_model, testing_gen, multi_task, stock, model_name, robust_scaler):
-    price = tf_model.predict(testing_gen, steps=testing_gen.__len__())
-    y_labels = np.empty((0))
-    for i in range(0, testing_gen.__len__()):
-        y_labels = np.append(y_labels, testing_gen.__getitem__(i)[1]['price'].flatten(), axis=0)
-    price = price.flatten()
-    time = range(len(price))
-    p_len = len(price)
-    print(p_len)
-    print(len(y_labels))
-    price = price.reshape(-1,1)
-    price = robust_scaler.inverse_transform(price)
-    price = price.reshape(p_len,)
+    price, side = tf_model.predict(testing_gen, steps=testing_gen.__len__())
+    for feature_name in config.features_classification:
+        if multi_task:
+        # loss, side_loss, action_loss, price_level_loss, liquidity_loss, side_binary_accuracy, action_categorical_accuracy, price_level_categorical_accuracy, liquidity_categorical_accuracy = tf_model.evaluate(testing_gen, verbose=2)
+            
+            print(side)
+           # loss, side_loss, action_loss, price_level_loss, liquidity_loss, side_binary_accuracy, action_categorical_accuracy, price_level_categorical_accuracy, liquidity_categorical_accuracy = tf_model.evaluate(testing_gen, verbose=2)
+            #with open():
+            
+            create_confusion_matrix(side, 'side', testing_gen, config.nb_mt_classes, config.start_side, config.end_side, stock, model_name)
+            #create_confusion_matrix(action, 'action', testing_gen, config.nb_mt_classes, config.start_action, config.end_action, stock, model_name)
+        # create_confusion_matrix(price_level, 'price_level', testing_gen, config.nb_mt_classes, config.start_price_level, config.end_price_level, stock, model_name)
+        # create_confusion_matrix(liquidity, 'liquidity', testing_gen, config.nb_mt_classes, config.start_liquidity, config.end_liquidity, stock, model_name)
 
-    y_labels = y_labels.reshape(-1,1)
-    y_labels = robust_scaler.inverse_transform(y_labels)
-    y_labels = y_labels.reshape(p_len,)
+    for feature_name in config.features_regression:
+        y_labels = np.empty((0))
+        for i in range(0, testing_gen.__len__()):
+            y_labels = np.append(y_labels, testing_gen.__getitem__(i)[1][feature_name].flatten(), axis=0)
+        print(price)
+        price = price.flatten()
+        time = range(len(price))
+        p_len = len(price)
+        print(p_len)
+        print(len(y_labels))
+        price = price.reshape(-1,1)
+        price = robust_scaler.inverse_transform(price)
+        price = price.reshape(p_len,)
 
-    print(price)
-    print(y_labels)
-    
-    plt.figure(figsize=(20,10))
-    sns.lineplot(y=price, x=time)
-    sns.lineplot(y=y_labels, x=time)
-    plt.savefig(paths.result_images + stock + '_price_pred.png')
+        y_labels = y_labels.reshape(-1,1)
+        y_labels = robust_scaler.inverse_transform(y_labels)
+        y_labels = y_labels.reshape(p_len,)
 
-def generate_metrics_real(tf_model, testing_gen, multi_task, stock, model_name):
-    if multi_task:
-       # loss, side_loss, action_loss, price_level_loss, liquidity_loss, side_binary_accuracy, action_categorical_accuracy, price_level_categorical_accuracy, liquidity_categorical_accuracy = tf_model.evaluate(testing_gen, verbose=2)
-        side, action, price_level, liquidity = tf_model.predict(testing_gen, steps=testing_gen.__len__())
-        loss, side_loss, action_loss, price_level_loss, liquidity_loss, side_binary_accuracy, action_categorical_accuracy, price_level_categorical_accuracy, liquidity_categorical_accuracy = tf_model.evaluate(testing_gen, verbose=2)
-        #with open():
+        print(price)
+        print(y_labels)
         
-        create_confusion_matrix(side, 'side', testing_gen, config.nb_mt_classes, config.start_side, config.end_side, stock, model_name)
-        create_confusion_matrix(action, 'action', testing_gen, config.nb_mt_classes, config.start_action, config.end_action, stock, model_name)
-        create_confusion_matrix(price_level, 'price_level', testing_gen, config.nb_mt_classes, config.start_price_level, config.end_price_level, stock, model_name)
-        create_confusion_matrix(liquidity, 'liquidity', testing_gen, config.nb_mt_classes, config.start_liquidity, config.end_liquidity, stock, model_name)
+        plt.figure(figsize=(20,10))
+        sns.lineplot(y=price, x=time, label='Prediction')
+        sns.lineplot(y=y_labels, x=time, label='Original')
+        plt.savefig(paths.result_images + stock + "_" + feature_name + '_pred.png')
 
 def create_confusion_matrix(feature, feature_name, testing_gen, label_size, start_idx, end_idx, stock, model_name):
         predicted_class = tf.argmax(feature, axis=1)
@@ -121,6 +124,11 @@ def create_confusion_matrix(feature, feature_name, testing_gen, label_size, star
         cnf_matrix = confusion_matrix(y_labels, predicted_class, labels=list(range(start_idx, end_idx)))
         plot_confusion_matrix(cnf_matrix, list(range(start_idx, end_idx)), model_name + str(config.num_frames) + '_convlstm_multi_' + feature_name + '_' + stock[:-11])
 
+def coeff_determination(y_true, y_pred):
+    SS_res =  K.sum(K.square( y_true-y_pred )) 
+    SS_tot = K.sum(K.square( y_true - K.mean(y_true) ) ) 
+    return ( 1 - SS_res/(SS_tot + K.epsilon()) )
+
 #Evaluation of Model - Confusion Matrix Plot
 def plot_confusion_matrix(cm, classes, name,
                           normalize=False,
@@ -132,20 +140,16 @@ def plot_confusion_matrix(cm, classes, name,
     """
     if normalize:
         cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-        print("Normalized confusion matrix")
-    else:
-        print('Confusion matrix, without normalization')
 
     print(cm)
     plt.figure(figsize=(25,25))
     plt.imshow(cm, interpolation='nearest', cmap=cmap)
     plt.title(title)
     plt.colorbar()
-    print(np.arange(3))
-    print(classes)
+    tick_points = np.arange(len(classes))
     tick_marks = classes
-    plt.xticks(len(classes), tick_marks, rotation=45)
-    plt.yticks(len(classes), tick_marks)
+    plt.xticks(tick_points, tick_marks, rotation=45)
+    plt.yticks(tick_points, tick_marks)
 
     fmt = '.2f' if normalize else '.2f'
     thresh = cm.max() / 2.
@@ -158,7 +162,6 @@ def plot_confusion_matrix(cm, classes, name,
     plt.xlabel('Predicted label')
     plt.tight_layout()
     plt.savefig(paths.result_images + name + '_confusion_multi.png')
-
 
 def plot_confusion_matrix_test(classes, name,
                           normalize=False,
