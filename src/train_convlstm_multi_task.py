@@ -50,11 +50,11 @@ def multi_task_model(input_shape, network, include_top=False, pooling=None):
     y1 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='mid_1')(encoded1)
     y1 = Dense(1, activation='relu', bias_initializer=model.initialize_bias, name='mid')(y1)
 
-    #y2 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='side_1')(encoded2)
-    #y2 = Dense(3, activation='softmax', bias_initializer=model.initialize_bias, name='side')(y2)
+    y2 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='side_1')(encoded2)
+    y2 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='side')(y2)
 
-   # y2 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='action_1')(encoded)
-    #y2 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='action')(y2)
+    y6 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='action_1')(encoded2)
+    y6 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='action')(y2)
 
     y3 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='price_1')(encoded2)
     y3 = Dense(1, activation='relu', bias_initializer=model.initialize_bias, name='price')(y3)
@@ -62,11 +62,11 @@ def multi_task_model(input_shape, network, include_top=False, pooling=None):
     y4 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='price_level_1')(encoded2)
     y4 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='price_level')(y4)
 
-    #y4 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='liquidity')(encoded)
+    y5 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='liquidity')(encoded2)
 
 
     # and a list of output layers
-    output = Model(inputs=[input1, input2, input3], outputs=[y1, y3, y4])
+    output = Model(inputs=[input1, input2, input3], outputs=[y1, y2, y3, y4, y5, y6])
     plot_model(output, paths.model_images + '/_convlstm_multi_e2e.png', show_shapes=True)
     return output
 
@@ -80,21 +80,21 @@ def train_model_base(reason):
     optimizer = Adam(lr = 0.000001)
 
     losses = {
-	#"side": "sparse_categorical_crossentropy",
-	#"action": "sparse_categorical_crossentropy",
+	"side": "sparse_categorical_crossentropy",
+	"action": "sparse_categorical_crossentropy",
     "price_level": 'sparse_categorical_crossentropy',
-   # "liquidity": "sparse_categorical_crossentropy",
+    "liquidity": "sparse_categorical_crossentropy",
      "mid": [tf.keras.losses.Huber(delta=0.4, name='huber_loss')],
      "price": "mean_squared_error"
    #  "spread": "mean_squared_error"
     }
 
     acc = {
-	#"side": "sparse_categorical_accuracy",
-	#"action": "sparse_categorical_accuracy",
+	"side": "sparse_categorical_accuracy",
+	"action": "sparse_categorical_accuracy",
     "price_level": "sparse_categorical_accuracy",
-   # "liquidity": "sparse_categorical_accuracy"
-    "mid":  [metrics.RootMeanSquaredError(), metrics.MeanAbsoluteError()],
+    "liquidity": "sparse_categorical_accuracy",
+    "mid": [metrics.RootMeanSquaredError(), metrics.MeanAbsoluteError()],
     "price": [metrics.RootMeanSquaredError(), metrics.MeanAbsoluteError()]
   #   "spread": "mae"
     }
