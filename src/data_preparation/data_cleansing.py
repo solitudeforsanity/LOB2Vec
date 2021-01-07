@@ -168,7 +168,7 @@ def convert_data_to_labels(stock_name, data_source, robust_scaler):
                 npy_x = np.load(x_path, allow_pickle=True)
                 npy_z = np.load(z_path, allow_pickle=True)
 
-                x_lob_states, x_lob_price, x_lob_qty, x_mid_price, x_spread, y_df_shifted, z_df_shifted, y_lob_price, robust_scaler = retrieve_cleansed_data(npy_x, npy_y, npy_z, file, True, False, robust_scaler)
+                x_lob_states, x_lob_price, x_lob_qty, x_mid_price, x_spread, y_df_shifted, z_df_shifted, y_lob_price, robust_scaler = retrieve_cleansed_data(npy_x, npy_y, npy_z, file, True, True, robust_scaler)
 
                 if len(x_lob_states) > 0:
                     if X_lob_states is not None:

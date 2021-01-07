@@ -23,6 +23,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.regularizers import l2
 from tensorflow.keras.utils import plot_model
 from sklearn.metrics import confusion_matrix
+from sklearn.preprocessing import MinMaxScaler, QuantileTransformer, RobustScaler
 AUTOTUNE = tf.data.experimental.AUTOTUNE
 
 #----------------BASE MODEL-----------------#
@@ -36,41 +37,36 @@ def model_base(input_shape, nb_classes, network, include_top=False, pooling=None
 
 def multi_task_model(input_shape, network, include_top=False, pooling=None):
     # Define model layers.
-    input = Input(shape=input_shape, name='input')
-    encoded = network(input)
-    y1 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='side_1')(encoded)
-    y1 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='side')(y1)
-
-   # y2 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='action_1')(encoded)
-    #y2 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='action')(y2)
-
-    #y3 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='price_level_1')(encoded)
-   # y3 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='price_level')(y3)
-
-    #y4 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='liquidity')(encoded)
-    # Define the model with the input layer
-    # and a list of output layers
-    output = Model(inputs=[input], outputs=[y1])
-    plot_model(output, paths.model_images + '/_convlstm_multi_e2e.png', show_shapes=True)
+    input1 = Input(shape=(config.num_frames, 1), name='input_1')
+    input2 = Input(shape=(config.num_frames, 1), name='input_2')
+    input3 = Input(shape=input_shape, name='input_3')
+    input4 = Input(shape=input_shape, name='input_4')
+    
+    encoded = network([input1, input2, input3, input4])
+    
+    output = Model(inputs=[input1, input2, input3, input4], outputs=[encoded])
+    plot_model(output, paths.model_images + '/_encoder_decoder_e2e.png', show_shapes=True)
     return output
 
 def train_model_base(reason):
-    build_representation = model.encoder_decoder_network()
-    tcn_model = multi_task_model(input_shape=(config.num_frames, config.h, config.w, config.d), network=build_representation)
+    tcn_model = model.encoder_decoder_simple()
+    #tcn_model = multi_task_model(input_shape=(config.num_frames, config.h, config.w, config.d), network=build_representation)
     optimizer = Adam(lr = 0.00001)
 
     losses = {
-	"side": "sparse_categorical_crossentropy"
+	#"side": "sparse_categorical_crossentropy"
 	#"action": "sparse_categorical_crossentropy",
    # "price_level": 'sparse_categorical_crossentropy'
    # "liquidity": "sparse_categorical_crossentropy"
+     "y_lob_prices" : "mean_squared_error"
     }
 
     acc = {
-	"side": "sparse_categorical_accuracy"
+	#"side": "sparse_categorical_accuracy"
 	#"action": "sparse_categorical_accuracy",
     #"price_level": "sparse_categorical_accuracy"
    # "liquidity": "sparse_categorical_accuracy"
+    "y_lob_prices" : "mean_squared_error"
     }
 
     precision = {
@@ -88,10 +84,10 @@ def train_model_base(reason):
     }
 
     tcn_model.compile(loss=losses, optimizer=optimizer, metrics=acc)
-    build_representation.summary()
+   # build_representation.summary()
     tcn_model.summary()
-    tcn_full_summary(build_representation, expand_residual_blocks=True)
-    plot_model(build_representation, paths.model_images + '/_convlstm_multi_.png', show_shapes=True)
+   # tcn_full_summary(build_representation, expand_residual_blocks=True)
+   # plot_model(build_representation, paths.model_images + '/_convlstm_multi_.png', show_shapes=True)
     #build_representation.save(paths.model_save + str(reason) + '_TCN_CC_Representation' +  str(config.embedding_size))
     return tcn_model
 
@@ -121,10 +117,13 @@ def model_fit(tcn_model, training_gen, validation_gen, model_name, steps_per_epo
 if __name__ == "__main__":
     my_reason = 0
     gen_type = 1
-    tcn_model = train_model_base(my_reason)
 
     for stock in config.stock_list:
-        training_gen, validation_gen, testing_gen, model_name, steps_per_epoch_travelled, val_steps_per_epoch_travelled, \
-                                                                    = model.return_parameters(stock, my_reason, gen_type)
+        tcn_model = train_model_base(my_reason)
+        robust_scaler = RobustScaler()
+        min_max_scaler = MinMaxScaler(feature_range=(-1,1))
+        # For large data you can add double for loop here and pass in the paths until data_cleanser to get data
+        training_gen, validation_gen, testing_gen, model_name, steps_per_epoch_travelled, val_steps_per_epoch_travelled, robust_scaler\
+                                                                    = model.return_parameters(stock, my_reason, gen_type, robust_scaler)
         tcn_model = model_fit(tcn_model, training_gen, validation_gen, model_name, steps_per_epoch_travelled, val_steps_per_epoch_travelled, my_reason, stock[:-11])
-        evaluation.generate_metrics(tcn_model, testing_gen, True, stock, model_name)
+        evaluation.generate_metrics(tcn_model, testing_gen, True, stock, model_name, robust_scaler)

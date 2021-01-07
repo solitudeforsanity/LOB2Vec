@@ -50,20 +50,19 @@ def multi_task_model(input_shape, network, include_top=False, pooling=None):
     y1 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='mid_1')(encoded1)
     y1 = Dense(1, activation='relu', bias_initializer=model.initialize_bias, name='mid')(y1)
 
-    y2 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='side_1')(encoded2)
-    y2 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='side')(y2)
+    y2 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='price_1')(encoded2)
+    y2 = Dense(1, activation='relu', bias_initializer=model.initialize_bias, name='price')(y2)
 
-    y6 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='action_1')(encoded2)
-    y6 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='action')(y2)
+    y3 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='side_1')(encoded2)
+    y3 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='side')(y3)
 
-    y3 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='price_1')(encoded2)
-    y3 = Dense(1, activation='relu', bias_initializer=model.initialize_bias, name='price')(y3)
+    y4 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='action_1')(encoded2)
+    y4 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='action')(y4)
 
-    y4 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='price_level_1')(encoded2)
-    y4 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='price_level')(y4)
+    y5 = Dense(60, activation=tf.keras.activations.swish, bias_initializer='he_uniform', name='price_level_1')(encoded2)
+    y5 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='price_level')(y5)
 
-    y5 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='liquidity')(encoded2)
-
+    y6 = Dense(41, activation='softmax', bias_initializer=model.initialize_bias, name='liquidity')(encoded2)
 
     # and a list of output layers
     output = Model(inputs=[input1, input2, input3], outputs=[y1, y2, y3, y4, y5, y6])
@@ -84,8 +83,8 @@ def train_model_base(reason):
 	"action": "sparse_categorical_crossentropy",
     "price_level": 'sparse_categorical_crossentropy',
     "liquidity": "sparse_categorical_crossentropy",
-     "mid": [tf.keras.losses.Huber(delta=0.4, name='huber_loss')],
-     "price": "mean_squared_error"
+    "mid": [tf.keras.losses.Huber(delta=0.4, name='huber_loss')],
+    "price": "mean_squared_error"
    #  "spread": "mean_squared_error"
     }
 
@@ -152,6 +151,7 @@ if __name__ == "__main__":
         tcn_model = train_model_base(my_reason)
         robust_scaler = RobustScaler()
         min_max_scaler = MinMaxScaler(feature_range=(-1,1))
+        # For large data you can add double for loop here and pass in the paths until data_cleanser to get data
         training_gen, validation_gen, testing_gen, model_name, steps_per_epoch_travelled, val_steps_per_epoch_travelled, robust_scaler\
                                                                     = model.return_parameters(stock, my_reason, gen_type, robust_scaler)
         tcn_model = model_fit(tcn_model, training_gen, validation_gen, model_name, steps_per_epoch_travelled, val_steps_per_epoch_travelled, my_reason, stock[:-11])

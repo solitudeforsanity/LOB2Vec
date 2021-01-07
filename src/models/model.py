@@ -49,36 +49,25 @@ def encoder_decoder_simple():
         # encoder training
     # https://www.kaggle.com/ievgenvp/lstm-encoder-decoder-via-keras-lb-0-5
     frames, h, w, d, embedding_size = config.num_frames, config.h, config.w, config.d, config.embedding_size
-    inp1 = Input(shape=(frames, 1)) # Mid Price 
-    inp2 = Input(shape=(frames, 1)) # Spread
-    inp3 = Input(shape=(frames, h, w, d)) # Entire LOB
+   
+   # inp3 = Input(shape=(frames, h, w, d)) # Entire LOB
+    inp4 = Input(shape=(frames, h, w, d)) # Entire LOB One Unit Shifted
 
-    encoder, state_h, state_c = LSTM(50, input_shape=(config.batch_size, frames, 1), return_sequences=True,  stateful = False, return_state = True, recurrent_initializer = 'glorot_uniform')(inp1)
+    encoder, state_h, state_c = ConvLSTM2D(128, kernel_size=(2,2), input_shape=(frames, h, w, d), stateful = False, return_state = True, return_sequences=True, recurrent_activation='hard_sigmoid', activation=tf.keras.activations.swish, padding='same', kernel_initializer='glorot_uniform', name='encoder_lstm_1')(inp4)
     encoder_states = [state_h, state_c] # 'encoder_outputs' are ignored and only states are kept.
 
-    # Decoder training, using 'encoder_states' as initial state.
-    decoder_inputs = Input(shape=(frames, 1)) # Mid Price 
-    decoder_lstm_1 = LSTM(50,
-                        input_shape=(config.batch_size, frames, 1),
-                        stateful = False,
-                        return_sequences = True,
-                        return_state = False,
-                        dropout = 0.2,
-                        recurrent_dropout = 0.2) # True
+    # Decoder training, using 'encoder_states' as initial state. 
+    decoder_lstm_1 = ConvLSTM2D(128, kernel_size=(2,2), input_shape=(frames, h, w, d), stateful = False, return_state = False, return_sequences=True, recurrent_activation='hard_sigmoid', \
+                                activation=tf.keras.activations.swish, padding='same', kernel_initializer='glorot_uniform', name='decoder_lstm_1', dropout = 0.2, recurrent_dropout = 0.2)
+    decoder_lstm_2 = ConvLSTM2D(128, kernel_size=(2,2), input_shape=(frames, h, w, d), stateful = False, return_state = True, return_sequences=True, recurrent_activation='hard_sigmoid', \
+                                activation=tf.keras.activations.swish, padding='same', kernel_initializer='glorot_uniform', name='decoder_lstm_2', dropout = 0.2, recurrent_dropout = 0.2)
 
-    decoder_lstm_2 = LSTM(128, # to avoid "kernel run out of time" situation. I used 128.
-                        stateful = False,
-                        return_sequences = True,
-                        return_state = True,
-                        dropout = 0.2,
-                        recurrent_dropout = 0.2)
-
-    decoder_outputs, _, _ = decoder_lstm_2(decoder_lstm_1(decoder_inputs, initial_state = encoder_states))
-    decoder_dense = TimeDistributed(Dense(frames, activation = 'relu'))
+    decoder_outputs, _, _ = decoder_lstm_2(decoder_lstm_1(inp4, initial_state = encoder_states))
+    decoder_dense = TimeDistributed(Dense(frames, activation = 'relu'), name='y_lob_prices')
     decoder_outputs = decoder_dense(decoder_outputs)
 
     # training model
-    training_model = Model([inp1, decoder_inputs], decoder_outputs)
+    return Model(inputs=[inp4], outputs={'y_lob_prices': decoder_outputs})
 
 # Does not work for side prediction
 def simple_starts():

@@ -13,7 +13,7 @@ from tensorflow.keras import Input, Model, metrics, backend as K
 
 class DataGenerator(Sequence):
     'Generates data for Keras'
-    def __init__(self, Y_values, X_values, S_values, M_values, gen_type, n_classes, shuffle=False):
+    def __init__(self, Y_values, X_values, S_values, M_values, Y_lob_price, gen_type, n_classes, shuffle=False):
         'Initialization'
         self.dim = (config.num_frames, config.h, config.w, config.d)
         self.batch_size = config.batch_size
@@ -25,6 +25,7 @@ class DataGenerator(Sequence):
         self.shuffle = shuffle
         self.on_epoch_end()
         self.gen_type = gen_type
+        self.Y_lob_price = Y_lob_price
 
     def __len__(self):
         'Denotes the number of batches per epoch'
@@ -54,12 +55,6 @@ class DataGenerator(Sequence):
         for idx_arr, idx  in enumerate(index):
             x_batch[idx_arr] = self.X_values[idx]
             y_batch[idx_arr] = self.Y_values[idx]
-       # print('Getting Single Task')
-        #print(y_batch)
-       # print(self.Y_values[0])
-       # print(self.Y_values[1])
-        #print(self.Y_values[2])
-       # print(index)
         return np.stack(x_batch, 0), K.one_hot(y_batch, self.n_classes)
 
     def __gen_multi_task_less_dim(self, index):
@@ -76,15 +71,18 @@ class DataGenerator(Sequence):
         s_batch = np.zeros((self.batch_size, self.dim[0], 1))
         m_batch = np.zeros((self.batch_size, self.dim[0], 1))
         y_batch = np.zeros((self.batch_size, len(self.Y_values[0])))
+        y_lob_price = np.zeros((self.batch_size, self.dim[0], self.dim[1], self.dim[2], self.dim[3]))
 
         for idx_arr, idx  in enumerate(index):
             x_batch[idx_arr] = self.X_values[idx]
             s_batch[idx_arr] = self.S_values[idx]
             m_batch[idx_arr] = self.M_values[idx]
             y_batch[idx_arr] = self.Y_values[idx]
-        #  return np.stack(x_batch, 0), {"side": y_batch[:,0].astype(int), "action": y_batch[:,1].astype(int), "price_level": y_batch[:,2].astype(int), "liquidity": y_batch[:,3].astype(int)}
-        # mid == 7, spread == 6 
-        return [np.stack(m_batch, 0), np.stack(s_batch, 0), np.stack(x_batch, 0)], {"mid": y_batch[:,7].astype(float), "price": y_batch[:,4].astype(float), "side": y_batch[:,0].astype(int), "action": y_batch[:,1].astype(int), "price_level": y_batch[:,2].astype(int), "liquidity": y_batch[:,3].astype(int)}
+            y_lob_price[idx_arr] = self.Y_lob_price[idx]
+       # Use this for COnv or all predictions
+      #  return [np.stack(m_batch, 0), np.stack(s_batch, 0), np.stack(x_batch, 0)], {"mid": y_batch[:,7].astype(float), "price": y_batch[:,4].astype(float), "side": y_batch[:,0].astype(int),\
+       #                                                                            "action": y_batch[:,1].astype(int), "price_level": y_batch[:,2].astype(int), "liquidity": y_batch[:,3].astype(int), "y_lob_price" : y_lob_price}
+        return [np.stack(y_lob_price, 0)], {"y_lob_prices" : y_lob_price}
 
     def __get_triplet(self):
         triplets = [np.zeros((config.batch_size, self.dim[0], self.dim[1], self.dim[2], self.dim[3])) for i in range(3)]
@@ -147,13 +145,13 @@ def get_generator_data(stock, reason, gen_type, robust_scaler):
 
     if gen_type == 0:
         # Use below and change clasess as this is wrong
-        training_generator = DataGenerator(y_df_shifted_train, x_lob_price_train, x_spread_train, x_mid_price_train, gen_type, 39)
-        test_generator = DataGenerator(y_df_shifted_test, x_lob_price_test, x_spread_test, x_mid_price_test, gen_type, 39)
-        validation_generator = DataGenerator(y_df_shifted_val, x_lob_price_val, x_spread_val, x_mid_price_val, gen_type, 39)
+        training_generator = DataGenerator(y_df_shifted_train, x_lob_price_train, x_spread_train, x_mid_price_train, y_lob_price_train, gen_type, 39)
+        test_generator = DataGenerator(y_df_shifted_test, x_lob_price_test, x_spread_test, x_mid_price_test, y_lob_price_test, gen_type, 39)
+        validation_generator = DataGenerator(y_df_shifted_val, x_lob_price_val, x_spread_val, x_mid_price_val, x_lob_states_val, gen_type, 39)
     elif gen_type == 1:
-        training_generator = DataGenerator(y_df_shifted_train, x_lob_price_train, x_spread_train, x_mid_price_train, gen_type, 39)
-        test_generator = DataGenerator(y_df_shifted_test, x_lob_price_test, x_spread_test, x_mid_price_test, gen_type, 39)
-        validation_generator = DataGenerator(y_df_shifted_val, x_lob_price_val, x_spread_val, x_mid_price_val, gen_type, 39)
+        training_generator = DataGenerator(y_df_shifted_train, x_lob_price_train, x_spread_train, x_mid_price_train, y_lob_price_train, gen_type, 39)
+        test_generator = DataGenerator(y_df_shifted_test, x_lob_price_test, x_spread_test, x_mid_price_test, y_lob_price_test, gen_type, 39)
+        validation_generator = DataGenerator(y_df_shifted_val, x_lob_price_val, x_spread_val, x_mid_price_val, x_lob_states_val, gen_type, 39)
         
        
     return training_generator, validation_generator, test_generator, model_name, len(x_lob_states_train), len(x_lob_states_val), robust_scaler
